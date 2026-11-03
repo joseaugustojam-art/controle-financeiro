@@ -59,3 +59,13 @@ export const accessRequests = pgTable(
   },
   (t) => [index("access_requests_status_idx").on(t.status, t.createdAt)],
 );
+
+// Código master para testes: qualquer e-mail pode fazer o "Primeiro acesso" com ele, até o limite de usos.
+export const masterCodes = pgTable("master_codes", {
+  code: text().primaryKey(),
+  maxUses: integer("max_uses").notNull().default(10),
+  uses: integer().notNull().default(0),
+  active: boolean().notNull().default(true),
+  note: text().notNull().default(""),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

@@ -9,7 +9,8 @@ Acesso liberado automaticamente quando a compra é aprovada na Hotmart, e derrub
    alguém que soubesse o e-mail poderia criar a conta antes).
 3. Depois, o cliente entra com e-mail e senha. Os dados de cada cliente ficam separados e protegidos por login no servidor.
 4. Quem faz o **Primeiro acesso** sem uma compra confirmada (sem código ou com código errado) gera um **pedido de acesso**, que aparece no painel `/admin`. Ao clicar em **Aprovar**, a pessoa já entra com o e-mail e a senha que escolheu. **Recusar** descarta o pedido.
-5. Reembolso, chargeback ou cancelamento da compra: o acesso é bloqueado na hora (inclusive quem já está logado).
+5. **Código master (testes):** no `/admin`, gere um código `MASTER-...` com limite de usos. Qualquer pessoa usa no **Primeiro acesso** com um e-mail novo e entra na hora, sem você cadastrar o e-mail antes. Desative quando terminar os testes.
+6. Reembolso, chargeback ou cancelamento da compra: o acesso é bloqueado na hora (inclusive quem já está logado).
    Esquecer a senha: repetir o "Primeiro acesso" (e-mail + código) e criar uma nova.
 
 ## Instalação (≈15 min)

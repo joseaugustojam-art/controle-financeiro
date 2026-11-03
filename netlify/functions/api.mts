@@ -1,9 +1,9 @@
 import type { Config, Context } from "@netlify/functions";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { accessRequests, licenses, ocrJobs, settings, userData, users } from "../../db/schema.js";
+import { accessRequests, licenses, masterCodes, ocrJobs, settings, userData, users } from "../../db/schema.js";
 import {
   HttpError, activeLicense, checkPassword, fail, hashPassword, json, normCode, normEmail, readJson,
   requireUser, safeEqual, signToken, validEmail, validatePassword,
@@ -28,6 +28,23 @@ const register: Handler = async (req) => {
     const user = await upsertUser(email, password);
     await db.delete(accessRequests).where(eq(accessRequests.email, email));
     return json({ token: await signToken(user) });
+  }
+  // Código master (testes): libera qualquer e-mail novo, até o limite de usos.
+  if (code.startsWith("MASTER-")) {
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    if (existing) throw new HttpError(409, "account_exists", "Este e-mail já tem conta. Use Entrar.");
+    const [mc] = await db.update(masterCodes).set({ uses: sql`${masterCodes.uses} + 1` })
+      .where(and(eq(masterCodes.code, code), eq(masterCodes.active, true), sql`${masterCodes.uses} < ${masterCodes.maxUses}`))
+      .returning();
+    if (mc) {
+      await setLicense(email, { code, status: "active", source: "master", event: "MASTER_CODE" });
+      const [user] = await db.insert(users).values({ id: randomUUID(), email, passHash: await hashPassword(password) })
+        .onConflictDoNothing().returning();
+      if (!user) throw new HttpError(409, "account_exists", "Este e-mail já tem conta. Use Entrar.");
+      await db.delete(accessRequests).where(eq(accessRequests.email, email));
+      return json({ token: await signToken(user) });
+    }
+    throw new HttpError(403, "bad_master", "Código de teste inválido, desativado ou esgotado.");
   }
   // Sem compra confirmada para este e-mail/código: vira um pedido de acesso para o administrador aprovar.
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(accessRequests)
@@ -177,17 +194,33 @@ const admin: Handler = async (req) => {
       email: accessRequests.email, code: accessRequests.code, status: accessRequests.status,
       createdAt: accessRequests.createdAt, updatedAt: accessRequests.updatedAt,
     }).from(accessRequests).where(eq(accessRequests.status, "pending")).orderBy(asc(accessRequests.updatedAt)).limit(300);
+    const masters = await db.select().from(masterCodes).orderBy(desc(masterCodes.createdAt)).limit(100);
     const licBy = new Map(rows.map((r) => [r.email, r.status]));
     return json({
       licenses: rows.map((r) => ({ ...r, hasAccount: has.has(r.email) })),
+      masters,
       requests: reqs.map((r) => ({ ...r, hasAccount: has.has(r.email), license: licBy.get(r.email) ?? null })),
     });
   }
   if (req.method !== "POST") throw new HttpError(405, "method", "Método não permitido.");
   const b = await readJson(req);
+  const action = String(b.action || "grant");
+  if (action === "create_master") {
+    const maxUses = Math.floor(Number(b.maxUses));
+    if (!(maxUses >= 1 && maxUses <= 1000)) throw new HttpError(400, "bad_uses", "Limite de usos entre 1 e 1000.");
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const code = "MASTER-" + Array.from(randomBytes(8), (x) => alphabet[x % alphabet.length]).join("");
+    const [mc] = await db.insert(masterCodes).values({ code, maxUses, note: String(b.note || "").slice(0, 80) }).returning();
+    return json({ ok: true, master: mc });
+  }
+  if (action === "toggle_master") {
+    const [mc] = await db.update(masterCodes).set({ active: !!b.active })
+      .where(eq(masterCodes.code, normCode(b.code))).returning();
+    if (!mc) throw new HttpError(404, "no_master", "Código não encontrado.");
+    return json({ ok: true, master: mc });
+  }
   const email = normEmail(b.email);
   if (!validEmail(email)) throw new HttpError(400, "bad_email", "Informe um e-mail válido.");
-  const action = String(b.action || "grant");
 
   if (action === "approve_request" || action === "reject_request") {
     const [r] = await db.select().from(accessRequests).where(eq(accessRequests.email, email));
