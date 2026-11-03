@@ -44,3 +44,18 @@ export const settings = pgTable("settings", {
   key: text().primaryKey(),
   value: text().notNull(),
 });
+
+// Pedido de acesso feito no "Primeiro acesso" quando não há compra confirmada para o e-mail/código.
+// O administrador aprova ou recusa no painel /admin.
+export const accessRequests = pgTable(
+  "access_requests",
+  {
+    email: text().primaryKey(),
+    code: text().notNull().default(""),
+    passHash: text("pass_hash").notNull(),
+    status: text().notNull().default("pending"), // pending | approved | rejected
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("access_requests_status_idx").on(t.status, t.createdAt)],
+);

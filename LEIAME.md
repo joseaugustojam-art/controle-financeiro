@@ -8,7 +8,8 @@ Acesso liberado automaticamente quando a compra é aprovada na Hotmart, e derrub
    O código da transação aparece no recibo/e-mail da compra da Hotmart. Ele prova que a pessoa é a compradora (sem isso,
    alguém que soubesse o e-mail poderia criar a conta antes).
 3. Depois, o cliente entra com e-mail e senha. Os dados de cada cliente ficam separados e protegidos por login no servidor.
-4. Reembolso, chargeback ou cancelamento da compra: o acesso é bloqueado na hora (inclusive quem já está logado).
+4. Quem faz o **Primeiro acesso** sem uma compra confirmada (sem código ou com código errado) gera um **pedido de acesso**, que aparece no painel `/admin`. Ao clicar em **Aprovar**, a pessoa já entra com o e-mail e a senha que escolheu. **Recusar** descarta o pedido.
+5. Reembolso, chargeback ou cancelamento da compra: o acesso é bloqueado na hora (inclusive quem já está logado).
    Esquecer a senha: repetir o "Primeiro acesso" (e-mail + código) e criar uma nova.
 
 ## Instalação (≈15 min)

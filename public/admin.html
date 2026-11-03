@@ -34,6 +34,11 @@ table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;b
 
 <div id="painel" hidden>
 <div class="card"><small id="quem"></small> <button class="s" onclick="sairAdmin()">Sair</button> <a href="/" style="color:var(--p);margin-left:8px">Abrir o app →</a></div>
+<div class="card"><h2>Pedidos de acesso <span id="npend" class="er"></span></h2>
+<small>Pessoas que fizeram o <b>Primeiro acesso</b> sem uma compra confirmada. Ao aprovar, a pessoa já entra com o e-mail e a senha que escolheu.</small>
+<div style="margin-top:6px"><button class="s" onclick="listar()">Atualizar</button></div>
+<div id="pedidos" style="margin-top:8px"></div></div>
+
 <div class="card"><h2>Criar conta para um cliente (ou trocar a senha)</h2>
 <small>Libera a licença do e-mail e já cria a conta com a senha informada.</small>
 <form onsubmit="criar(event)"><label for="ce">E-mail</label><input id="ce" type="email" required autocomplete="username">
@@ -62,18 +67,22 @@ function msg(el,t,ok){el.textContent=t;el.className=ok?'ok':'er'}
 function show(id){['carregando','setup','entrar','painel'].forEach(x=>$('#'+x).hidden=x!==id)}
 async function setup(e){e.preventDefault();try{const r=await req('/admin-setup',{method:'POST',body:JSON.stringify({email:$('#se').value,password:$('#sp').value})});localStorage.setItem('cf_tk',r.token);iniciar()}catch(err){msg($('#sm'),err.message)}}
 async function entrar(e){e.preventDefault();try{const r=await req('/login',{method:'POST',body:JSON.stringify({email:$('#ee').value,password:$('#ep').value})});localStorage.setItem('cf_tk',r.token);iniciar()}catch(err){msg($('#em'),err.message)}}
-function sairAdmin(){localStorage.removeItem('cf_tk');iniciar()}
+function sairAdmin(){clearInterval(window._t);localStorage.removeItem('cf_tk');iniciar()}
 async function criar(e){e.preventDefault();try{await api({method:'POST',body:JSON.stringify({action:'create_account',email:$('#ce').value,password:$('#cp').value})});msg($('#cm'),'Conta criada! O cliente já pode entrar no app com esse e-mail e senha.',1);$('#cp').value='';listar()}catch(err){msg($('#cm'),err.message)}}
 async function liberar(e){e.preventDefault();try{const r=await api({method:'POST',body:JSON.stringify({action:'grant',email:$('#le').value,code:$('#lc').value})});msg($('#lm'),'Liberado. Código: '+r.license.code,1);listar()}catch(err){msg($('#lm'),err.message)}}
 async function revogar(email){if(!confirm('Revogar o acesso de '+email+'?'))return;try{await api({method:'POST',body:JSON.stringify({action:'revoke',email})});listar()}catch(err){alert(err.message)}}
 async function liberarDeNovo(email,code){try{await api({method:'POST',body:JSON.stringify({action:'grant',email,code})});listar()}catch(err){alert(err.message)}}
+async function responder(email,ok){if(!ok&&!confirm('Recusar o pedido de '+email+'?'))return;try{await api({method:'POST',body:JSON.stringify({action:ok?'approve_request':'reject_request',email})});listar()}catch(err){alert(err.message)}}
+const quando=d=>new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+function pedidos(rs){$('#npend').textContent=rs.length?'('+rs.length+')':'';document.title=(rs.length?'('+rs.length+') ':'')+'Admin — Controle Financeiro';
+ $('#pedidos').innerHTML=rs.length?'<table><tr><th>E-mail</th><th>Código informado</th><th>Pedido em</th><th></th></tr>'+rs.map(r=>`<tr><td>${esc(r.email)}${r.hasAccount?' <small>(já tem conta: a senha atual é mantida)</small>':''}${r.license=='revoked'?' <small class="er">(licença revogada)</small>':''}</td><td>${r.code?esc(r.code):'<small>—</small>'}</td><td><small>${esc(quando(r.updatedAt))}</small></td><td style="white-space:nowrap"><button class="s" style="background:var(--g);color:var(--bg);border-color:var(--g)" data-e="${esc(r.email)}" onclick="responder(this.dataset.e,1)">Aprovar</button> <button class="s" data-e="${esc(r.email)}" onclick="responder(this.dataset.e,0)">Recusar</button></td></tr>`).join('')+'</table>':'<small>Nenhum pedido aguardando.</small>'}
 async function listar(){const el=$('#lista');
- try{const {licenses}=await api();
+ try{const {licenses,requests}=await api();pedidos(requests||[]);
   el.innerHTML=licenses.length?'<table><tr><th>E-mail</th><th>Código</th><th>Status</th><th></th></tr>'+licenses.map(l=>`<tr><td>${esc(l.email)}${l.hasAccount?'':' <small>(sem conta)</small>'}</td><td>${esc(l.code)}</td><td class="${l.status=='active'?'ok':'er'}">${l.status=='active'?'ativa':'revogada'}</td><td>${l.status=='active'?`<button class="s" data-e="${esc(l.email)}" onclick="revogar(this.dataset.e)">Revogar</button>`:`<button class="s" data-e="${esc(l.email)}" data-c="${esc(l.code)}" onclick="liberarDeNovo(this.dataset.e,this.dataset.c)">Reativar</button>`}</td></tr>`).join('')+'</table>':'<small>Nenhuma licença ainda.</small>'}
  catch(err){el.innerHTML='<small class="er">'+esc(err.message)+'</small>'}}
 async function iniciar(){show('carregando');
  try{
-  if(tk()){try{const me=await req('/me');if(me.isAdmin){$('#quem').textContent='Administrador: '+me.email;show('painel');listar();return}
+  if(tk()){try{const me=await req('/me');if(me.isAdmin){$('#quem').textContent='Administrador: '+me.email;show('painel');listar();clearInterval(window._t);window._t=setInterval(()=>{if(!document.hidden)listar()},60000);return}
    localStorage.removeItem('cf_tk');msg($('#em'),'Esta conta não é de administrador.')}catch(e){localStorage.removeItem('cf_tk')}}
   const {hasAdmin}=await req('/admin-setup');show(hasAdmin?'entrar':'setup');
  }catch(err){$('#carregando').innerHTML='<small class="er">Servidor indisponível: '+esc(err.message)+'</small>'}}
