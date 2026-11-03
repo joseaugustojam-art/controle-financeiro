@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Controle Financeiro</title>
+<style>
+:root{--bg:#f4f6fb;--c:#fff;--t:#1d2433;--m:#6b7280;--p:#1F3864;--g:#0a7a3d;--r:#c0262d;--b:#e1e5ee}
+@media(prefers-color-scheme:dark){:root{--bg:#12151c;--c:#1b2030;--t:#e8ebf3;--m:#97a0b5;--p:#7aa2ff;--g:#4cd08a;--r:#ff7a80;--b:#2a3042}}
+html,body{margin:0;background:var(--bg);color:var(--t);font:16px -apple-system,Arial,sans-serif}
+main{max-width:720px;margin:auto;padding:12px}
+h1{font-size:20px;margin:6px 0}h2{font-size:16px;margin:0 0 8px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:12px;margin:10px 0}
+label{display:block;font-size:13px;color:var(--m);margin:8px 0 3px}
+input,button{font-size:16px;padding:10px;border:1px solid var(--b);border-radius:8px;background:var(--c);color:var(--t);box-sizing:border-box;width:100%}
+button{background:var(--p);color:var(--bg);border-color:var(--p);margin-top:10px;cursor:pointer}
+button.s{background:var(--c);color:var(--t);border-color:var(--b);width:auto;padding:6px 10px;margin:0;font-size:14px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+small{color:var(--m)}.ok{color:var(--g)}.er{color:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--b);text-align:left;vertical-align:middle}
+</style></head><body><main>
+<h1>🔐 Admin</h1>
+<div id="carregando" class="card"><small>Carregando…</small></div>
+
+<div id="setup" class="card" hidden><h2>Criar a conta de administrador</h2>
+<small>Primeira vez aqui: escolha o e-mail e a senha do administrador. Essa conta também entra no app normalmente. Depois disso, esta opção some.</small>
+<form onsubmit="setup(event)"><label for="se">E-mail</label><input id="se" type="email" required autocomplete="username">
+<label for="sp">Senha (mínimo 8 caracteres)</label><input id="sp" type="password" minlength="8" required autocomplete="new-password">
+<button>Criar administrador</button></form><small id="sm"></small></div>
+
+<div id="entrar" class="card" hidden><h2>Entrar como administrador</h2>
+<form onsubmit="entrar(event)"><label for="ee">E-mail</label><input id="ee" type="email" required autocomplete="username">
+<label for="ep">Senha</label><input id="ep" type="password" required autocomplete="current-password">
+<button>Entrar</button></form><small id="em"></small></div>
+
+<div id="painel" hidden>
+<div class="card"><small id="quem"></small> <button class="s" onclick="sairAdmin()">Sair</button> <a href="/" style="color:var(--p);margin-left:8px">Abrir o app →</a></div>
+<div class="card"><h2>Criar conta para um cliente (ou trocar a senha)</h2>
+<small>Libera a licença do e-mail e já cria a conta com a senha informada.</small>
+<form onsubmit="criar(event)"><label for="ce">E-mail</label><input id="ce" type="email" required autocomplete="username">
+<label for="cp">Senha (mínimo 8 caracteres)</label><input id="cp" type="password" minlength="8" required autocomplete="new-password">
+<button>Criar acesso</button></form><small id="cm"></small></div>
+
+<div class="card"><h2>Liberar acesso para um cliente</h2>
+<small>O cliente usa <b>Primeiro acesso</b> no app com este e-mail e código.</small>
+<form onsubmit="liberar(event)"><div class="row"><div><label for="le">E-mail</label><input id="le" type="email" required></div>
+<div><label for="lc">Código</label><input id="lc" placeholder="TESTE1"></div></div>
+<button>Liberar</button></form><small id="lm"></small></div>
+
+<div class="card"><h2>Licenças</h2><button class="s" onclick="listar()">Atualizar</button>
+<div id="lista" style="margin-top:8px"></div></div>
+</div>
+
+<p><a href="/" style="color:var(--p)">← Voltar ao app</a></p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tk=()=>localStorage.getItem('cf_tk')||'';
+async function req(p,o={}){const r=await fetch('/api'+p,{...o,headers:{'content-type':'application/json',...(tk()?{authorization:'Bearer '+tk()}:{})}});const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||('Erro '+r.status)),{status:r.status});return j}
+const api=(o)=>req('/admin',o);
+function msg(el,t,ok){el.textContent=t;el.className=ok?'ok':'er'}
+function show(id){['carregando','setup','entrar','painel'].forEach(x=>$('#'+x).hidden=x!==id)}
+async function setup(e){e.preventDefault();try{const r=await req('/admin-setup',{method:'POST',body:JSON.stringify({email:$('#se').value,password:$('#sp').value})});localStorage.setItem('cf_tk',r.token);iniciar()}catch(err){msg($('#sm'),err.message)}}
+async function entrar(e){e.preventDefault();try{const r=await req('/login',{method:'POST',body:JSON.stringify({email:$('#ee').value,password:$('#ep').value})});localStorage.setItem('cf_tk',r.token);iniciar()}catch(err){msg($('#em'),err.message)}}
+function sairAdmin(){localStorage.removeItem('cf_tk');iniciar()}
+async function criar(e){e.preventDefault();try{await api({method:'POST',body:JSON.stringify({action:'create_account',email:$('#ce').value,password:$('#cp').value})});msg($('#cm'),'Conta criada! O cliente já pode entrar no app com esse e-mail e senha.',1);$('#cp').value='';listar()}catch(err){msg($('#cm'),err.message)}}
+async function liberar(e){e.preventDefault();try{const r=await api({method:'POST',body:JSON.stringify({action:'grant',email:$('#le').value,code:$('#lc').value})});msg($('#lm'),'Liberado. Código: '+r.license.code,1);listar()}catch(err){msg($('#lm'),err.message)}}
+async function revogar(email){if(!confirm('Revogar o acesso de '+email+'?'))return;try{await api({method:'POST',body:JSON.stringify({action:'revoke',email})});listar()}catch(err){alert(err.message)}}
+async function liberarDeNovo(email,code){try{await api({method:'POST',body:JSON.stringify({action:'grant',email,code})});listar()}catch(err){alert(err.message)}}
+async function listar(){const el=$('#lista');
+ try{const {licenses}=await api();
+  el.innerHTML=licenses.length?'<table><tr><th>E-mail</th><th>Código</th><th>Status</th><th></th></tr>'+licenses.map(l=>`<tr><td>${esc(l.email)}${l.hasAccount?'':' <small>(sem conta)</small>'}</td><td>${esc(l.code)}</td><td class="${l.status=='active'?'ok':'er'}">${l.status=='active'?'ativa':'revogada'}</td><td>${l.status=='active'?`<button class="s" data-e="${esc(l.email)}" onclick="revogar(this.dataset.e)">Revogar</button>`:`<button class="s" data-e="${esc(l.email)}" data-c="${esc(l.code)}" onclick="liberarDeNovo(this.dataset.e,this.dataset.c)">Reativar</button>`}</td></tr>`).join('')+'</table>':'<small>Nenhuma licença ainda.</small>'}
+ catch(err){el.innerHTML='<small class="er">'+esc(err.message)+'</small>'}}
+async function iniciar(){show('carregando');
+ try{
+  if(tk()){try{const me=await req('/me');if(me.isAdmin){$('#quem').textContent='Administrador: '+me.email;show('painel');listar();return}
+   localStorage.removeItem('cf_tk');msg($('#em'),'Esta conta não é de administrador.')}catch(e){localStorage.removeItem('cf_tk')}}
+  const {hasAdmin}=await req('/admin-setup');show(hasAdmin?'entrar':'setup');
+ }catch(err){$('#carregando').innerHTML='<small class="er">Servidor indisponível: '+esc(err.message)+'</small>'}}
+iniciar();
+</script></body></html>
