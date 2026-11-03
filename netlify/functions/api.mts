@@ -1,10 +1,11 @@
 import type { Config, Context } from "@netlify/functions";
+import { randomBytes, randomUUID } from "node:crypto";
 import { getStore } from "@netlify/blobs";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { licenses, ocrJobs, settings, userData, users } from "../../db/schema.js";
+import { accessRequests, licenses, masterCodes, ocrJobs, settings, userData, users } from "../../db/schema.js";
 import {
-  HttpError, activeLicense, checkPassword, fail, json, normCode, normEmail, readJson,
+  HttpError, activeLicense, checkPassword, fail, hashPassword, json, normCode, normEmail, readJson,
   requireUser, safeEqual, signToken, validEmail, validatePassword,
 } from "../../lib/auth.js";
 import { setLicense, upsertUser } from "../../lib/accounts.js";
@@ -15,24 +16,66 @@ const MAX_IMAGES = 8;
 type Handler = (req: Request, ctx: Context) => Promise<Response>;
 
 // ---------- cliente ----------
+const MAX_PENDING_REQUESTS = 300;
+
 const register: Handler = async (req) => {
   const b = await readJson(req);
-  const email = normEmail(b.email), code = normCode(b.code);
+  const email = normEmail(b.email), code = normCode(b.code).slice(0, 60);
   if (!validEmail(email)) throw new HttpError(400, "bad_email", "Informe um e-mail válido.");
-  if (!code) throw new HttpError(400, "no_code", "Informe o código da transação (HP...).");
   const password = validatePassword(b.password);
   const lic = await activeLicense(email);
-  if (!lic || !lic.code || !safeEqual(normCode(lic.code), code))
-    throw new HttpError(403, "no_license", "Não encontramos uma compra ativa com esse e-mail e código.");
-  const user = await upsertUser(email, password);
-  return json({ token: await signToken(user) });
+  if (code && lic?.code && safeEqual(normCode(lic.code), code)) {
+    const user = await upsertUser(email, password);
+    await db.delete(accessRequests).where(eq(accessRequests.email, email));
+    return json({ token: await signToken(user) });
+  }
+  // Código master (testes): libera qualquer e-mail novo, até o limite de usos.
+  if (code.startsWith("MASTER-")) {
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    if (existing) throw new HttpError(409, "account_exists", "Este e-mail já tem conta. Use Entrar.");
+    const [mc] = await db.update(masterCodes).set({ uses: sql`${masterCodes.uses} + 1` })
+      .where(and(eq(masterCodes.code, code), eq(masterCodes.active, true), sql`${masterCodes.uses} < ${masterCodes.maxUses}`))
+      .returning();
+    if (mc) {
+      await setLicense(email, { code, status: "active", source: "master", event: "MASTER_CODE" });
+      const [user] = await db.insert(users).values({ id: randomUUID(), email, passHash: await hashPassword(password) })
+        .onConflictDoNothing().returning();
+      if (!user) throw new HttpError(409, "account_exists", "Este e-mail já tem conta. Use Entrar.");
+      await db.delete(accessRequests).where(eq(accessRequests.email, email));
+      return json({ token: await signToken(user) });
+    }
+    throw new HttpError(403, "bad_master", "Código de teste inválido, desativado ou esgotado.");
+  }
+  // Sem compra confirmada para este e-mail/código: vira um pedido de acesso para o administrador aprovar.
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(accessRequests)
+    .where(eq(accessRequests.status, "pending"));
+  const [prev] = await db.select().from(accessRequests).where(eq(accessRequests.email, email));
+  if (!prev && n >= MAX_PENDING_REQUESTS)
+    throw new HttpError(429, "too_many_requests", "Muitos pedidos de acesso no momento. Tente mais tarde.");
+  const passHash = await hashPassword(password);
+  const now = new Date();
+  await db.insert(accessRequests).values({ email, code, passHash, status: "pending", createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({ target: accessRequests.email, set: { code, passHash, status: "pending", updatedAt: now } });
+  return json({
+    pending: true,
+    message: "Pedido de acesso enviado! Assim que for aprovado, entre com este e-mail e a senha que você escolheu.",
+  }, 202);
 };
 
 const login: Handler = async (req) => {
   const b = await readJson(req);
   const email = normEmail(b.email);
   const [user] = await db.select().from(users).where(eq(users.email, email));
-  if (!user || !(await checkPassword(String(b.password ?? ""), user.passHash)))
+  if (!user) {
+    // Quem pediu acesso e ainda não foi aprovado recebe uma mensagem clara (só com a senha certa).
+    const [r] = await db.select().from(accessRequests).where(eq(accessRequests.email, email));
+    if (r && r.status !== "approved" && (await checkPassword(String(b.password ?? ""), r.passHash)))
+      throw new HttpError(403, "request_" + r.status, r.status === "pending"
+        ? "Seu pedido de acesso ainda está aguardando aprovação."
+        : "Seu pedido de acesso não foi aprovado. Fale com o suporte.");
+    throw new HttpError(401, "bad_login", "E-mail ou senha incorretos.");
+  }
+  if (!(await checkPassword(String(b.password ?? ""), user.passHash)))
     throw new HttpError(401, "bad_login", "E-mail ou senha incorretos.");
   if (!(await activeLicense(email))) throw new HttpError(403, "license_inactive", "Licença inativa. Fale com o suporte.");
   return json({ token: await signToken(user) });
@@ -147,14 +190,52 @@ const admin: Handler = async (req) => {
     const rows = await db.select().from(licenses).orderBy(desc(licenses.updatedAt)).limit(500);
     const accs = await db.select({ email: users.email }).from(users);
     const has = new Set(accs.map((a) => a.email));
-    return json({ licenses: rows.map((r) => ({ ...r, hasAccount: has.has(r.email) })) });
+    const reqs = await db.select({
+      email: accessRequests.email, code: accessRequests.code, status: accessRequests.status,
+      createdAt: accessRequests.createdAt, updatedAt: accessRequests.updatedAt,
+    }).from(accessRequests).where(eq(accessRequests.status, "pending")).orderBy(asc(accessRequests.updatedAt)).limit(300);
+    const masters = await db.select().from(masterCodes).orderBy(desc(masterCodes.createdAt)).limit(100);
+    const licBy = new Map(rows.map((r) => [r.email, r.status]));
+    return json({
+      licenses: rows.map((r) => ({ ...r, hasAccount: has.has(r.email) })),
+      masters,
+      requests: reqs.map((r) => ({ ...r, hasAccount: has.has(r.email), license: licBy.get(r.email) ?? null })),
+    });
   }
   if (req.method !== "POST") throw new HttpError(405, "method", "Método não permitido.");
   const b = await readJson(req);
+  const action = String(b.action || "grant");
+  if (action === "create_master") {
+    const maxUses = Math.floor(Number(b.maxUses));
+    if (!(maxUses >= 1 && maxUses <= 1000)) throw new HttpError(400, "bad_uses", "Limite de usos entre 1 e 1000.");
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const code = "MASTER-" + Array.from(randomBytes(8), (x) => alphabet[x % alphabet.length]).join("");
+    const [mc] = await db.insert(masterCodes).values({ code, maxUses, note: String(b.note || "").slice(0, 80) }).returning();
+    return json({ ok: true, master: mc });
+  }
+  if (action === "toggle_master") {
+    const [mc] = await db.update(masterCodes).set({ active: !!b.active })
+      .where(eq(masterCodes.code, normCode(b.code))).returning();
+    if (!mc) throw new HttpError(404, "no_master", "Código não encontrado.");
+    return json({ ok: true, master: mc });
+  }
   const email = normEmail(b.email);
   if (!validEmail(email)) throw new HttpError(400, "bad_email", "Informe um e-mail válido.");
-  const action = String(b.action || "grant");
 
+  if (action === "approve_request" || action === "reject_request") {
+    const [r] = await db.select().from(accessRequests).where(eq(accessRequests.email, email));
+    if (!r || r.status !== "pending") throw new HttpError(404, "no_request", "Pedido não encontrado ou já respondido.");
+    if (action === "reject_request") {
+      await db.update(accessRequests).set({ status: "rejected", updatedAt: new Date() }).where(eq(accessRequests.email, email));
+      return json({ ok: true });
+    }
+    const [lic] = await db.select().from(licenses).where(eq(licenses.email, email));
+    await setLicense(email, { code: lic ? undefined : r.code || "MANUAL", status: "active", source: "admin", event: "ADMIN_APPROVE" });
+    // Cria a conta com a senha que a pessoa escolheu. Se a conta já existir, a senha atual é mantida.
+    await db.insert(users).values({ id: randomUUID(), email, passHash: r.passHash }).onConflictDoNothing();
+    await db.update(accessRequests).set({ status: "approved", updatedAt: new Date() }).where(eq(accessRequests.email, email));
+    return json({ ok: true });
+  }
   if (action === "revoke") {
     const [target] = await db.select().from(users).where(eq(users.email, email));
     if (target?.isAdmin) throw new HttpError(400, "is_admin", "Não é possível revogar a conta de administrador.");
