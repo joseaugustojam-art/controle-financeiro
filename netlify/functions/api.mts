@@ -1,13 +1,14 @@
 import type { Config, Context } from "@netlify/functions";
+import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { licenses, ocrJobs, settings, userData, users } from "../../db/schema.js";
 import {
   HttpError, activeLicense, checkPassword, fail, json, normCode, normEmail, readJson,
-  requireUser, safeEqual, signToken, validEmail, validatePassword,
+  requireUser, safeEqual, signToken, throttleCheck, throttleClear, throttleHit, validEmail, validatePassword,
 } from "../../lib/auth.js";
-import { setLicense, upsertUser } from "../../lib/accounts.js";
+import { inDays, setExpiry, setLicense, upsertUser } from "../../lib/accounts.js";
 
 const MAX_DATA_BYTES = 4_000_000;
 const MAX_IMAGES = 8;
@@ -21,9 +22,13 @@ const register: Handler = async (req) => {
   if (!validEmail(email)) throw new HttpError(400, "bad_email", "Informe um e-mail válido.");
   if (!code) throw new HttpError(400, "no_code", "Informe o código da transação (HP...).");
   const password = validatePassword(b.password);
+  await throttleCheck("reg:" + email);
   const lic = await activeLicense(email);
-  if (!lic || !lic.code || !safeEqual(normCode(lic.code), code))
+  if (!lic || !lic.code || !safeEqual(normCode(lic.code), code)) {
+    await throttleHit("reg:" + email);
     throw new HttpError(403, "no_license", "Não encontramos uma compra ativa com esse e-mail e código.");
+  }
+  await throttleClear("reg:" + email);
   const user = await upsertUser(email, password);
   return json({ token: await signToken(user) });
 };
@@ -31,10 +36,14 @@ const register: Handler = async (req) => {
 const login: Handler = async (req) => {
   const b = await readJson(req);
   const email = normEmail(b.email);
+  await throttleCheck("login:" + email);
   const [user] = await db.select().from(users).where(eq(users.email, email));
-  if (!user || !(await checkPassword(String(b.password ?? ""), user.passHash)))
+  if (!user || !(await checkPassword(String(b.password ?? ""), user.passHash))) {
+    await throttleHit("login:" + email);
     throw new HttpError(401, "bad_login", "E-mail ou senha incorretos.");
-  if (!(await activeLicense(email))) throw new HttpError(403, "license_inactive", "Licença inativa. Fale com o suporte.");
+  }
+  await throttleClear("login:" + email);
+  if (!(await activeLicense(email))) throw new HttpError(403, "license_inactive", "Licença inativa ou expirada. Fale com o suporte.");
   return json({ token: await signToken(user) });
 };
 
@@ -128,6 +137,10 @@ async function requireAdmin(req: Request) {
 const adminSetup: Handler = async (req) => {
   if (req.method === "GET") return json({ hasAdmin: await hasAdmin() });
   if (req.method !== "POST") throw new HttpError(405, "method", "Método não permitido.");
+  // Se ADMIN_KEY estiver definida, ela é exigida para criar o primeiro administrador (evita que um estranho tome a conta).
+  const adminKey = process.env.ADMIN_KEY;
+  if (adminKey && !safeEqual(req.headers.get("x-admin-key") || "", adminKey))
+    throw new HttpError(401, "bad_admin_key", "Informe a chave de administrador (ADMIN_KEY) para criar o administrador.");
   const b = await readJson(req);
   const email = normEmail(b.email);
   if (!validEmail(email)) throw new HttpError(400, "bad_email", "Informe um e-mail válido.");
@@ -147,7 +160,9 @@ const admin: Handler = async (req) => {
     const rows = await db.select().from(licenses).orderBy(desc(licenses.updatedAt)).limit(500);
     const accs = await db.select({ email: users.email }).from(users);
     const has = new Set(accs.map((a) => a.email));
-    return json({ licenses: rows.map((r) => ({ ...r, hasAccount: has.has(r.email) })) });
+    const exps = await db.select().from(settings).where(like(settings.key, "exp:%"));
+    const expMap = new Map(exps.map((e) => [e.key.slice(4), Number(e.value)]));
+    return json({ licenses: rows.map((r) => ({ ...r, hasAccount: has.has(r.email), expiresAt: expMap.get(r.email) ?? null })) });
   }
   if (req.method !== "POST") throw new HttpError(405, "method", "Método não permitido.");
   const b = await readJson(req);
@@ -162,15 +177,21 @@ const admin: Handler = async (req) => {
     return json({ ok: true, license: lic });
   }
   if (action === "grant") {
-    const code = normCode(b.code) || "TESTE1";
-    const lic = await setLicense(email, { code, status: "active", source: "admin", event: "ADMIN_GRANT" });
-    return json({ ok: true, license: lic });
+    // days > 0 = código de teste com prazo (aceita fração: 0.0417 ≈ 1 hora). Sem days = sem prazo.
+    const days = Math.min(Math.max(Number(b.days) || 0, 0), 365);
+    const code = normCode(b.code) || (days > 0 ? "TESTE-" + randomBytes(3).toString("hex").toUpperCase() : "TESTE1");
+    const lic = await setLicense(email, { code, status: "active", source: "admin", event: days > 0 ? "ADMIN_TRIAL" : "ADMIN_GRANT" });
+    const expiresAt = days > 0 ? inDays(days) : null;
+    await setExpiry(email, expiresAt);
+    return json({ ok: true, license: lic, expiresAt: expiresAt ? expiresAt.getTime() : null });
   }
   if (action === "create_account") {
     // Libera a licença e já cria a conta (ou troca a senha) — útil para o seu próprio acesso.
     const password = validatePassword(b.password);
     const code = normCode(b.code) || "ADMIN";
+    const days = Math.min(Math.max(Number(b.days) || 0, 0), 365);
     await setLicense(email, { code, status: "active", source: "admin", event: "ADMIN_ACCOUNT" });
+    await setExpiry(email, days > 0 ? inDays(days) : null);
     await upsertUser(email, password);
     return json({ ok: true });
   }
@@ -200,6 +221,7 @@ const hotmart: Handler = async (req) => {
 
   if (ACTIVATE.has(event)) {
     await setLicense(email, { code, status: "active", source: "hotmart", event });
+    await setExpiry(email, null); // a compra real substitui qualquer prazo de teste
   } else if (REVOKE.has(event)) {
     const [lic] = await db.select().from(licenses).where(eq(licenses.email, email));
     // Só revoga se for a mesma transação (ou se não houver código para comparar).
