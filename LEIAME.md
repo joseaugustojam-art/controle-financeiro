@@ -1,4 +1,4 @@
-# Controle Financeiro — versão para vender (Hotmart + Netlify)
+# GESFI — Gestão Financeira — versão para vender (Hotmart + Netlify)
 
 Acesso liberado automaticamente quando a compra é aprovada na Hotmart, e derrubado em reembolso/chargeback.
 
@@ -17,7 +17,7 @@ Acesso liberado automaticamente quando a compra é aprovada na Hotmart, e derrub
 2. Na Netlify: **Site configuration > Environment variables** — crie:
    | Variável | Valor |
    |---|---|
-   | `ADMIN_KEY` | (opcional) chave para usar `/api/admin` pelo terminal (`curl`); a página `/admin` não precisa dela |
+   | `ADMIN_KEY` | **recomendado**: texto longo e aleatório. Protege a criação do primeiro administrador em `/admin` e permite usar `/api/admin` pelo terminal |
    | `HOTMART_HOTTOK` | o *hottok* da sua conta Hotmart (Ferramentas > Webhook > aba Autenticação) |
    | `JWT_SECRET` | (opcional) texto aleatório longo; se não existir, o sistema gera um sozinho |
    | `HOTMART_PRODUCT_ID` | (opcional) ID do produto, se você tiver mais de um na conta |
@@ -31,7 +31,7 @@ Acesso liberado automaticamente quando a compra é aprovada na Hotmart, e derrub
 
 ## Criar o seu acesso (admin)
 1. Depois do primeiro deploy, abra `https://SEU-SITE.netlify.app/admin`.
-2. Na primeira visita aparece **Criar a conta de administrador**: escolha e-mail e senha. Faça isso logo após publicar, porque só a primeira conta criada vira administradora.
+2. Na primeira visita aparece **Criar a conta de administrador**: escolha e-mail e senha e informe a `ADMIN_KEY`. Faça isso logo após publicar, porque só a primeira conta criada vira administradora (defina a `ADMIN_KEY` antes, senão qualquer pessoa que achar o endereço antes de você poderia criar esse administrador).
 3. Nas próximas vezes, entre em `/admin` com esse e-mail e senha para liberar, revogar e criar contas de clientes. A mesma conta também usa o app normalmente.
 
 ## Testar sem comprar
@@ -49,3 +49,13 @@ Depois use Primeiro acesso com esse e-mail e o código `TESTE1`. Para revogar: a
   Faça os testes com a Hotmart em modo teste antes de abrir as vendas e confira os campos do webhook na documentação da Hotmart.
 - **Open Finance:** não incluído (exige agregador contratado).
 - **Aspectos legais:** inclua Termos de Uso e Política de Privacidade (LGPD) no site, pois você guardará dados financeiros de clientes.
+
+
+## Novidades desta versão
+- **Marca GESFI** com logo, tela de login nova, barra de navegação inferior com ícones, animações e ícones por categoria.
+  No celular dá para **instalar como app**: Safari > Compartilhar > *Adicionar à Tela de Início* (Android: menu do Chrome > *Instalar app*).
+- **Código de teste com prazo** em `/admin`: informe o e-mail do testador, escolha 1 hora, 1, 3, 7, 14 ou 30 dias e toque em *Gerar código de teste*.
+  O painel mostra o código e um botão **Copiar mensagem para o testador** (já com link, e-mail e código). Quando o prazo acaba, o acesso é bloqueado
+  sozinho (inclusive quem já estiver logado). Na lista, o testador aparece com o prazo; *Renovar* pergunta por quantos dias.
+  Se a pessoa comprar depois pela Hotmart, o prazo de teste é removido automaticamente.
+- Tudo guardado sem alterar o banco (sem nova migração): é só substituir os arquivos e publicar.
