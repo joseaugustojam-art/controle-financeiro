@@ -43,6 +43,28 @@ async function secret(): Promise<string> {
   return secretCache;
 }
 
+// ---------- limite de tentativas (anti força bruta) ----------
+const THR_MAX = 8, THR_WINDOW = 15 * 60_000;
+async function thrRead(key: string) {
+  const [row] = await db.select().from(settings).where(eq(settings.key, key));
+  if (!row) return { n: 0, t: Date.now() };
+  const [a, b] = row.value.split("|");
+  const n = Number(a) || 0, t = Number(b) || Date.now();
+  return Date.now() - t > THR_WINDOW ? { n: 0, t: Date.now() } : { n, t };
+}
+export async function throttleCheck(key: string) {
+  const r = await thrRead("thr:" + key);
+  if (r.n >= THR_MAX) throw new HttpError(429, "too_many", "Muitas tentativas. Aguarde 15 minutos e tente de novo.");
+}
+export async function throttleHit(key: string) {
+  const r = await thrRead("thr:" + key);
+  const value = `${r.n + 1}|${r.t}`;
+  await db.insert(settings).values({ key: "thr:" + key, value }).onConflictDoUpdate({ target: settings.key, set: { value } });
+}
+export async function throttleClear(key: string) {
+  await db.delete(settings).where(eq(settings.key, "thr:" + key));
+}
+
 export async function hashPassword(pw: string) {
   const salt = randomBytes(16);
   const h = await scrypt(pw, salt, 64);
@@ -72,9 +94,13 @@ export function validatePassword(pw: unknown) {
   return p;
 }
 
+// Licença ativa e, se tiver prazo (testadores), ainda dentro dele.
 export async function activeLicense(email: string) {
   const [lic] = await db.select().from(licenses).where(eq(licenses.email, email));
-  return lic && lic.status === "active" ? lic : null;
+  if (!lic || lic.status !== "active") return null;
+  const [exp] = await db.select().from(settings).where(eq(settings.key, "exp:" + email));
+  if (exp && Number(exp.value) < Date.now()) return null;
+  return lic;
 }
 
 // Valida a sessão e confirma que a licença continua ativa (bloqueia reembolso/chargeback na hora).
@@ -95,7 +121,7 @@ export async function requireUser(req: Request) {
   const [user] = await db.select().from(users).where(eq(users.id, p.sub));
   if (!user || user.tokenVersion !== p.v) throw new HttpError(401, "bad_session", "Sessão expirada. Entre novamente.");
   if (!(await activeLicense(user.email)))
-    throw new HttpError(403, "license_inactive", "Licença inativa. Fale com o suporte.");
+    throw new HttpError(403, "license_inactive", "Licença inativa ou expirada. Fale com o suporte.");
   return user;
 }
 

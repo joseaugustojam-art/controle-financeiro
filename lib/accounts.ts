@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { licenses, users } from "../db/schema.js";
+import { licenses, settings, users } from "../db/schema.js";
 import { hashPassword } from "./auth.js";
 
 // Cria a conta ou redefine a senha (invalida sessões antigas).
@@ -17,6 +17,18 @@ export async function upsertUser(email: string, password: string) {
     .returning();
   return u;
 }
+
+// Prazo de validade (testadores). null = sem prazo. Fica na tabela settings (chave "exp:<email>").
+export async function setExpiry(email: string, expiresAt: Date | null) {
+  const key = "exp:" + email;
+  if (!expiresAt) {
+    await db.delete(settings).where(eq(settings.key, key));
+    return;
+  }
+  const value = String(expiresAt.getTime());
+  await db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } });
+}
+export const inDays = (days: number) => new Date(Date.now() + days * 864e5);
 
 export async function setLicense(email: string, data: { code?: string; status: string; source: string; event?: string }) {
   const values = {
