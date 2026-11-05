@@ -84,13 +84,17 @@ input:focus,select:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 4px rg
 .gname{margin-top:12px;font-size:36px;font-weight:800;letter-spacing:3px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.gsub{color:var(--m);font-size:14px;margin:2px 0 16px}
 .seg{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:16px;margin-bottom:14px}.seg button{flex:1;border:0;background:transparent;color:var(--m);font-weight:700;padding:11px 6px;border-radius:12px;font-size:15px;transition:all .2s}.seg button.on{background:var(--grad);color:#fff;box-shadow:0 8px 16px rgba(124,77,255,.35)}
 .gfoot{margin-top:14px;font-size:12px;color:var(--m)}
+
+nav#nav{width:calc(100% - 16px);max-width:440px;box-sizing:border-box;justify-content:space-between;padding:6px 4px}
+nav#nav button{flex:1 1 0;min-width:0;padding:8px 2px}
+nav#nav button span{white-space:nowrap}
 </style></head><body><div id="gate" class="gate"><div class="gc">
 <img class="glogo" src="logo.svg" alt="GESFI"><div class="gname">GESFI</div><div class="gsub">Gestão financeira simples, do seu jeito 💜</div>
 <div class="seg"><button id="tl" class="on" onclick="gtab(0)">Entrar</button><button id="tr" onclick="gtab(1)">Primeiro acesso</button></div>
 <form id="gf" onsubmit="gsend(event)" style="display:grid;gap:10px;text-align:left"><input id="ge" type="email" placeholder="📧  E-mail da compra" autocomplete="username" required><input id="gc" placeholder="🔑  Código da compra (ex.: HP12345678901234)" hidden><input id="gp" type="password" placeholder="🔒  Senha (mínimo 8 caracteres)" autocomplete="current-password" required minlength="8"><button class="a" id="gb">Entrar</button><div id="gmsg" style="font-size:14px;color:var(--r);min-height:18px"></div></form>
 <div class="gfoot">O acesso é liberado automaticamente após a confirmação da compra, apenas para o e-mail do comprador.</div></div></div>
 <main>
-<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.3</small></div></div><button class="lk" style="margin-left:auto" onclick="sair()">Sair</button></div>
+<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.4</small></div></div><button class="lk" style="margin-left:auto" onclick="sair()">Sair</button></div>
 <div id="warn" class="card r" hidden>Sem conexão com o servidor: os dados valem só nesta sessão.</div>
 <div class="row"><span class="dt" style="width:auto;flex:0 1 150px"><span id="mesTxt"></span><input id="mes" type="month" onchange="mes=this.value;draw()" onclick="try{this.showPicker()}catch(e){}" aria-label="Mês"></span><button id="mny" onclick="pop(1)" aria-label="Alertas e previsão de parcelas"><svg viewBox="0 0 96 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <g class="w"><g class="wl"><path d="M30 38C18 22 6 24 2 14C16 8 28 18 36 32Z" fill="#f1f8e9" stroke="#2e7d32" stroke-width="1.5"/><path d="M31 37C21 30 13 30 7 26" fill="none" stroke="#a5d6a7" stroke-width="1.5"/></g></g>
@@ -175,7 +179,7 @@ function lista(){
  <div class="card"><form novalidate onsubmit="add(event)">
  ${dtb('data','date',new Date().toISOString().slice(0,10),'qd(this)')}
  <select name="cat" aria-label="Tópico">${C[tab].map(c=>`<option>${esc(c)}</option>`).join('')}</select>
- <input class="w" name="desc" placeholder="Descrição" required>
+ <input class="w" name="desc" placeholder="Descrição (opcional)">
  ${tab=='ent'?`<label class="w q">Quita o mês (a entrada paga as contas do mês anterior ao recebimento)${dtb('quita','month',pm(new Date().toISOString().slice(0,10)))}</label>`:''}
  <input name="valor" type="text" inputmode="decimal" autocomplete="off" placeholder="Valor (R$) ex.: 25,90" required>
  ${car?'<input name="parc" type="number" min="1" inputmode="numeric" placeholder="Parcelas (1)"><input name="parcAt" type="number" min="1" inputmode="numeric" placeholder="Parcela atual (1)">':''}
@@ -186,7 +190,7 @@ function lista(){
 const num=s=>{s=String(s==null?'':s).replace(/[^\d,.\-]/g,'');if(!s)return NaN;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^-?\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');const v=parseFloat(s);return isFinite(v)?Math.round(v*100)/100:NaN};
 function add(e){e.preventDefault();try{add_(e)}catch(err){toast('⚠ Erro ao adicionar: '+(err&&err.message||err),9000);console.error(err)}}
 function add_(e){const f=new FormData(e.target);
- const R={tipo:tab,data:f.get('data'),desc:f.get('desc'),cat:f.get('cat'),valor:num(f.get('valor')),parc:+f.get('parc')||1,parcAt:+f.get('parcAt')||1,fatura:mes,...(f.get('quita')?{quita:f.get('quita')}:{})};if(!String(f.get('desc')||'').trim()){toast('⚠ Informe a descrição',4000);return}if(!isFinite(R.valor)){toast(String(f.get('valor')||'').trim()?'⚠ Valor inválido. Use números, ex.: 1500,50':'⚠ Informe o valor',4000);return}if(!R.desc||!R.data||R.parcAt>R.parc){toast('⚠ Confira data, descrição, valor e parcelas (atual ≤ total)',5000);return}(tab=='car'&&R.parc>1?(g=>Promise.all(g.ps).then(()=>toast('✓ Salvo · '+g.p+' parcela(s) prevista(s) nos meses seguintes'),fail))(lancarCar([R])):put(R).then(saved,fail));const m=mo(R);if(m!==mes){mes=m;fil='';toast('Lançado em '+m.split('-').reverse().join('/'))}e.target.reset();draw();}
+ const R={tipo:tab,data:f.get('data'),desc:(String(f.get('desc')||'').trim()||f.get('cat')||'Lançamento'),cat:f.get('cat'),valor:num(f.get('valor')),parc:+f.get('parc')||1,parcAt:+f.get('parcAt')||1,fatura:mes,...(f.get('quita')?{quita:f.get('quita')}:{})};if(!isFinite(R.valor)){toast(String(f.get('valor')||'').trim()?'⚠ Valor inválido. Use números, ex.: 1500,50':'⚠ Informe o valor',4000);return}if(!R.data||R.parcAt>R.parc){toast('⚠ Confira a data e as parcelas (atual ≤ total)',5000);return}(tab=='car'&&R.parc>1?(g=>Promise.all(g.ps).then(()=>toast('✓ Salvo · '+g.p+' parcela(s) prevista(s) nos meses seguintes'),fail))(lancarCar([R])):put(R).then(saved,fail));const m=mo(R);if(m!==mes){mes=m;fil='';toast('Lançado em '+m.split('-').reverse().join('/'))}e.target.reset();draw();}
 function put(r){if(col)return col.add(r);r.id=Math.random()+'';rows.push(r);draw();return Promise.resolve()}
 function del(id){const r=rows.find(x=>x.id==id),ids=[id];if(r&&r.tipo=='car'&&r.parc>1&&!r.proj)rows.forEach(x=>{if(x.proj&&sk(x)==sk(r)&&x.parcAt>r.parcAt)ids.push(x.id)});
  Promise.all(ids.map(i=>col?col.doc(i).delete():(rows=rows.filter(x=>x.id!=i),Promise.resolve()))).then(()=>{if(!col)draw();saved()},fail)}
