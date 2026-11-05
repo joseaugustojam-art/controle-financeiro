@@ -90,7 +90,7 @@ input:focus,select:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 4px rg
 <form id="gf" onsubmit="gsend(event)" style="display:grid;gap:10px;text-align:left"><input id="ge" type="email" placeholder="📧  E-mail da compra" autocomplete="username" required><input id="gc" placeholder="🔑  Código da compra (ex.: HP12345678901234)" hidden><input id="gp" type="password" placeholder="🔒  Senha (mínimo 8 caracteres)" autocomplete="current-password" required minlength="8"><button class="a" id="gb">Entrar</button><div id="gmsg" style="font-size:14px;color:var(--r);min-height:18px"></div></form>
 <div class="gfoot">O acesso é liberado automaticamente após a confirmação da compra, apenas para o e-mail do comprador.</div></div></div>
 <main>
-<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira</small></div></div><button class="lk" style="margin-left:auto" onclick="sair()">Sair</button></div>
+<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.3</small></div></div><button class="lk" style="margin-left:auto" onclick="sair()">Sair</button></div>
 <div id="warn" class="card r" hidden>Sem conexão com o servidor: os dados valem só nesta sessão.</div>
 <div class="row"><span class="dt" style="width:auto;flex:0 1 150px"><span id="mesTxt"></span><input id="mes" type="month" onchange="mes=this.value;draw()" onclick="try{this.showPicker()}catch(e){}" aria-label="Mês"></span><button id="mny" onclick="pop(1)" aria-label="Alertas e previsão de parcelas"><svg viewBox="0 0 96 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <g class="w"><g class="wl"><path d="M30 38C18 22 6 24 2 14C16 8 28 18 36 32Z" fill="#f1f8e9" stroke="#2e7d32" stroke-width="1.5"/><path d="M31 37C21 30 13 30 7 26" fill="none" stroke="#a5d6a7" stroke-width="1.5"/></g></g>
@@ -104,6 +104,7 @@ input:focus,select:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 4px rg
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script>
+if(window.addEventListener)window.addEventListener('error',e=>{try{toast('⚠ Erro no app: '+e.message,9000)}catch(_){}});
 const $=s=>document.querySelector(s),T={res:'Resumo',ent:'Entradas',fix:'Fixos',var:'Variáveis',car:'Cartão'};
 const C={ent:['Salário','Freelance','Investimentos','Outros'],fix:['Aluguel','Energia','Água','Internet','Condomínio','Outros'],var:['Mercado','Lazer','Transporte','Saúde','Restaurantes','Outros'],car:['Comida','Transporte','Mercado','Lazer','Saúde','Assinaturas','Compras','Outros']};
 let rows=[],tab='res',mes=new Date().toISOString().slice(0,7),col=null,prev=null,note='',ch=[],cfg=null,fil='',ed=false,cl=[],pw='',db_=null,lm={},isOwner=false,reqs=[],myId='';
@@ -171,7 +172,7 @@ function lista(){
  const L=rows.filter(r=>r.tipo==tab&&mo(r)===mes&&(!fil||r.cat===fil)).sort((a,b)=>b.data.localeCompare(a.data));
  const car=tab=='car';
  return chips()+`
- <div class="card"><form onsubmit="add(event)">
+ <div class="card"><form novalidate onsubmit="add(event)">
  ${dtb('data','date',new Date().toISOString().slice(0,10),'qd(this)')}
  <select name="cat" aria-label="Tópico">${C[tab].map(c=>`<option>${esc(c)}</option>`).join('')}</select>
  <input class="w" name="desc" placeholder="Descrição" required>
@@ -183,8 +184,9 @@ function lista(){
  <div class="card">${L.map(r=>`<div class="i"><span class="rw"><i class="av" style="background:${avc(r.cat)}">${ico(r.cat)}</i><span>${esc(r.desc)}<small>${r.data.split('-').reverse().join('/')} · ${sel(r.cat,"setCat('"+r.id+"',this.value)")}${r.parc>1?` · ${r.parcAt}/${r.parc}`:''}${r.proj?' · previsto':''}${r.tipo=='ent'?' · quita '+mo(r).split('-').reverse().join('/'):''}</small></span></span><span>${brl(r.valor)} <button onclick="del('${r.id}')">✕</button></span></div>`).join('')||'<small>Nenhum lançamento neste mês.</small>'}</div>`;
 }
 const num=s=>{s=String(s==null?'':s).replace(/[^\d,.\-]/g,'');if(!s)return NaN;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^-?\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');const v=parseFloat(s);return isFinite(v)?Math.round(v*100)/100:NaN};
-function add(e){e.preventDefault();const f=new FormData(e.target);
- const R={tipo:tab,data:f.get('data'),desc:f.get('desc'),cat:f.get('cat'),valor:num(f.get('valor')),parc:+f.get('parc')||1,parcAt:+f.get('parcAt')||1,fatura:mes,...(f.get('quita')?{quita:f.get('quita')}:{})};if(!isFinite(R.valor)){toast('⚠ Valor inválido. Use números, ex.: 1500,50',5000);return}if(!R.desc||!R.data||R.parcAt>R.parc){toast('⚠ Confira data, descrição, valor e parcelas (atual ≤ total)',5000);return}(tab=='car'&&R.parc>1?(g=>Promise.all(g.ps).then(()=>toast('✓ Salvo · '+g.p+' parcela(s) prevista(s) nos meses seguintes'),fail))(lancarCar([R])):put(R).then(saved,fail));const m=mo(R);if(m!==mes){mes=m;fil='';toast('Lançado em '+m.split('-').reverse().join('/'))}e.target.reset();draw();}
+function add(e){e.preventDefault();try{add_(e)}catch(err){toast('⚠ Erro ao adicionar: '+(err&&err.message||err),9000);console.error(err)}}
+function add_(e){const f=new FormData(e.target);
+ const R={tipo:tab,data:f.get('data'),desc:f.get('desc'),cat:f.get('cat'),valor:num(f.get('valor')),parc:+f.get('parc')||1,parcAt:+f.get('parcAt')||1,fatura:mes,...(f.get('quita')?{quita:f.get('quita')}:{})};if(!String(f.get('desc')||'').trim()){toast('⚠ Informe a descrição',4000);return}if(!isFinite(R.valor)){toast(String(f.get('valor')||'').trim()?'⚠ Valor inválido. Use números, ex.: 1500,50':'⚠ Informe o valor',4000);return}if(!R.desc||!R.data||R.parcAt>R.parc){toast('⚠ Confira data, descrição, valor e parcelas (atual ≤ total)',5000);return}(tab=='car'&&R.parc>1?(g=>Promise.all(g.ps).then(()=>toast('✓ Salvo · '+g.p+' parcela(s) prevista(s) nos meses seguintes'),fail))(lancarCar([R])):put(R).then(saved,fail));const m=mo(R);if(m!==mes){mes=m;fil='';toast('Lançado em '+m.split('-').reverse().join('/'))}e.target.reset();draw();}
 function put(r){if(col)return col.add(r);r.id=Math.random()+'';rows.push(r);draw();return Promise.resolve()}
 function del(id){const r=rows.find(x=>x.id==id),ids=[id];if(r&&r.tipo=='car'&&r.parc>1&&!r.proj)rows.forEach(x=>{if(x.proj&&sk(x)==sk(r)&&x.parcAt>r.parcAt)ids.push(x.id)});
  Promise.all(ids.map(i=>col?col.doc(i).delete():(rows=rows.filter(x=>x.id!=i),Promise.resolve()))).then(()=>{if(!col)draw();saved()},fail)}
