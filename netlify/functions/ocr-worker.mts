@@ -51,8 +51,13 @@ export default async (req: Request) => {
     const cats = Array.isArray(meta.cats) && meta.cats.length ? meta.cats.map(String) : ["Outros"];
 
     const client = new Anthropic();
-    const msg = await client.messages.create({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
+    // Tenta o modelo configurado e, se o serviço disser que o modelo não é aceito, um modelo alternativo.
+    const MODELS = [process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5", "claude-sonnet-4-5"];
+    let msg: any;
+    for (let i = 0; i < MODELS.length; i++) {
+      try {
+        msg = await client.messages.create({
+      model: MODELS[i],
       max_tokens: 8000,
       tools: [TOOL],
       tool_choice: { type: "tool", name: TOOL.name },
@@ -69,15 +74,25 @@ Categorias permitidas (use exatamente uma): ${cats.join(", ")}. Se nenhuma servi
           },
         ],
       }],
-    });
-    const tool = msg.content.find((c) => c.type === "tool_use");
+        });
+        break;
+      } catch (err: any) {
+        const d = String(err?.error?.error?.message || err?.message || "");
+        if (i < MODELS.length - 1 && err?.status === 400 && /model/i.test(d)) continue;
+        throw err;
+      }
+    }
+    const tool = msg.content.find((c: any) => c.type === "tool_use");
     if (!tool || tool.type !== "tool_use") return fail(id, "ocr_error", "Não foi possível ler a fatura.");
     await db.update(ocrJobs).set({ status: "done", result: tool.input }).where(eq(ocrJobs.id, id));
   } catch (e: any) {
     console.error(e);
     const status = e?.status;
     if (status === 429) return fail(id, "rate_limited", "Muitas leituras seguidas. Aguarde um minuto.");
-    if (status === 400) return fail(id, "image_rejected", "Imagem não aceita (formato ou tamanho).");
+    if (status === 400) {
+      const detail = String(e?.error?.error?.message || e?.message || "").replace(/\s+/g, " ").slice(0, 180);
+      return fail(id, "ocr_400", `Leitura recusada pelo serviço de IA: ${detail}`);
+    }
     return fail(id, "ocr_error", "Falha na leitura da fatura.");
   } finally {
     await store.delete(id).catch(() => {});
