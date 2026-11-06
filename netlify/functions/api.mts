@@ -92,7 +92,10 @@ const ocrStart: Handler = async (req) => {
   const meta = b.meta && typeof b.meta === "object" ? b.meta : {};
   const inserted = await db.insert(ocrJobs).values({ id, userId: u.id, meta }).onConflictDoNothing().returning();
   if (!inserted.length) throw new HttpError(409, "dup", "Leitura já iniciada.");
-  await getStore("ocr-images").setJSON(id, images);
+  const texts = Array.isArray(b.texts)
+    ? b.texts.filter((x: unknown) => typeof x === "string").map((x: string) => x.slice(0, 40_000)).slice(0, MAX_IMAGES)
+    : [];
+  await getStore("ocr-images").setJSON(id, { images, texts });
 
   const r = await fetch(new URL("/.netlify/functions/ocr-worker", req.url), {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }),
