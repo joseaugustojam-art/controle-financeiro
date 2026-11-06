@@ -43,7 +43,7 @@
   sample.json = async (_p, o) => {
     const imgs = await Promise.all(o.images.map((b) => new Promise((r) => { const f = new FileReader(); f.onload = () => r(f.result.split(',')[1]); f.readAsDataURL(b); })));
     const id = uid();
-    await api('/ocr-start', { method: 'POST', body: JSON.stringify({ id, images: imgs, meta: o.meta }) });
+    await api('/ocr-start', { method: 'POST', body: JSON.stringify({ id, images: imgs, texts: o.texts || [], meta: o.meta }) });
     for (let i = 0; i < 70; i++) {
       await new Promise((r) => setTimeout(r, 2500));
       const s = await api('/ocr-status?id=' + id);

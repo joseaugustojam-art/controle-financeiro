@@ -88,13 +88,18 @@ input:focus,select:focus{outline:0;border-color:var(--p);box-shadow:0 0 0 4px rg
 nav#nav{width:calc(100% - 16px);max-width:440px;box-sizing:border-box;justify-content:space-between;padding:6px 4px}
 nav#nav button{flex:1 1 0;min-width:0;padding:8px 2px}
 nav#nav button span{white-space:nowrap}
+
+/* Android: a etiqueta flutuante da Netlify fica no rodapé; a barra sobe para não ficar por baixo dela */
+html.android nav#nav{bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+html.android main{padding-bottom:190px}
+html.android .toast{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
 </style></head><body><div id="gate" class="gate"><div class="gc">
 <img class="glogo" src="logo.svg" alt="GESFI"><div class="gname">GESFI</div><div class="gsub">Gestão financeira simples, do seu jeito 💜</div>
 <div class="seg"><button id="tl" class="on" onclick="gtab(0)">Entrar</button><button id="tr" onclick="gtab(1)">Primeiro acesso</button></div>
 <form id="gf" onsubmit="gsend(event)" style="display:grid;gap:10px;text-align:left"><input id="ge" type="email" placeholder="📧  E-mail da compra" autocomplete="username" required><input id="gc" placeholder="🔑  Código da compra (ex.: HP12345678901234)" hidden><input id="gp" type="password" placeholder="🔒  Senha (mínimo 8 caracteres)" autocomplete="current-password" required minlength="8"><button class="a" id="gb">Entrar</button><div id="gmsg" style="font-size:14px;color:var(--r);min-height:18px"></div></form>
 <div class="gfoot">O acesso é liberado automaticamente após a confirmação da compra, apenas para o e-mail do comprador.</div></div></div>
 <main>
-<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.6</small></div></div><a class="lk" href="manual.html" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">Ajuda</a><button class="lk" onclick="sair()">Sair</button></div>
+<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.7</small></div></div><a class="lk" href="manual.html" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">Ajuda</a><button class="lk" onclick="sair()">Sair</button></div>
 <div id="warn" class="card r" hidden>Sem conexão com o servidor: os dados valem só nesta sessão.</div>
 <div class="row"><span class="dt" style="width:auto;flex:0 1 150px"><span id="mesTxt"></span><input id="mes" type="month" onchange="mes=this.value;draw()" onclick="try{this.showPicker()}catch(e){}" aria-label="Mês"></span><button id="mny" onclick="pop(1)" aria-label="Alertas e previsão de parcelas"><svg viewBox="0 0 96 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <g class="w"><g class="wl"><path d="M30 38C18 22 6 24 2 14C16 8 28 18 36 32Z" fill="#f1f8e9" stroke="#2e7d32" stroke-width="1.5"/><path d="M31 37C21 30 13 30 7 26" fill="none" stroke="#a5d6a7" stroke-width="1.5"/></g></g>
@@ -108,6 +113,7 @@ nav#nav button span{white-space:nowrap}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script>
+if(/Android/i.test(navigator.userAgent)&&document.documentElement)document.documentElement.classList.add('android');
 if(window.addEventListener)window.addEventListener('error',e=>{try{toast('⚠ Erro no app: '+e.message,9000)}catch(_){}});
 const $=s=>document.querySelector(s),T={res:'Resumo',ent:'Entradas',fix:'Fixos',var:'Variáveis',car:'Cartão'};
 const C={ent:['Salário','Freelance','Investimentos','Outros'],fix:['Aluguel','Energia','Água','Internet','Condomínio','Outros'],var:['Mercado','Lazer','Transporte','Saúde','Restaurantes','Outros'],car:['Comida','Transporte','Mercado','Lazer','Saúde','Assinaturas','Compras','Outros']};
@@ -267,24 +273,29 @@ async function dec(f){try{return await createImageBitmap(f)}catch(e){return awai
 async function jpg(c,max){let q=.85,cv=c;for(let i=0;i<10;i++){const b=await new Promise(r=>cv.toBlob(r,'image/jpeg',q));if(b&&b.size<=max)return b;
   if(q>.6)q-=.1;else{const n=document.createElement('canvas');n.width=Math.round(cv.width*.85);n.height=Math.round(cv.height*.85);n.getContext('2d').drawImage(cv,0,0,n.width,n.height);cv=n}}
  return await new Promise(r=>cv.toBlob(r,'image/jpeg',.6))}
+async function pageText(pg){const tc=await pg.getTextContent(),rows=[];
+ tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const x=it.transform[4],y=it.transform[5];let r=rows.find(q=>Math.abs(q.y-y)<2.5);if(!r){r={y,it:[]};rows.push(r)}r.it.push({x,s:it.str,w:it.width||0})});
+ rows.sort((a,b)=>b.y-a.y);
+ return rows.map(r=>{r.it.sort((a,b)=>a.x-b.x);let t='',px=null;r.it.forEach(i=>{const s=i.s;if(px!==null){const g=i.x-px;if(g>12)t=t.replace(/\s+$/,'')+'   ';else if(g>1.2&&!/\s$/.test(t)&&!/^\s/.test(s))t+=' '}t+=(px!==null&&/\s$/.test(t)?s.replace(/^\s+/,''):s);px=i.x+i.w});return t.replace(/\s+$/,'')}).filter(Boolean).join('\n')}
 async function pdfPages(f,pass,max){
  if(!window.pdfjsLib)throw Error('Leitor de PDF indisponível. Use uma foto.');
  let d;try{d=await pdfjsLib.getDocument({data:await f.arrayBuffer(),password:pass||undefined,isEvalSupported:false}).promise}catch(e){if(e&&e.name=='PasswordException')throw Object.assign(Error('PDF protegido'),{code:'pdf_senha'});throw e}
- const out=[];for(let n=1;n<=Math.min(d.numPages,max);n++){const pg=await d.getPage(n),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:Math.min(2,1200/v0.width)}),c=document.createElement('canvas');
-  c.width=Math.round(v.width);c.height=Math.round(v.height);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;out.push(await jpg(c,Math.min(d.numPages,max)>1?450e3:1.2e6))}
- return out}
+ const out=[],texts=[];for(let n=1;n<=Math.min(d.numPages,max);n++){const pg=await d.getPage(n),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:Math.min(2,1200/v0.width)}),c=document.createElement('canvas');
+  c.width=Math.round(v.width);c.height=Math.round(v.height);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;out.push(await jpg(c,Math.min(d.numPages,max)>1?450e3:1.2e6));try{texts.push((await pageText(pg)).slice(0,38000))}catch(e){texts.push('')}}
+ out.texts=texts;return out}
 function bank(){$('#pp').innerHTML='<h3 style="margin-top:0">🏦 Vincular banco (Open Finance)</h3><div>Ainda não está disponível. Enquanto isso, use <b>Foto</b> ou <b>PDF</b> da fatura (o PDF costuma ser mais preciso).</div><button class="a" style="width:100%;margin-top:12px" onclick="pop(0)">Entendi</button>';$('#pop').hidden=false}
 async function ler(inp){const f=inp.files&&inp.files[0];if(!f)return;const pdf=/pdf/i.test(f.type)||/\.pdf$/i.test(f.name),pass=pw,bmP=pdf?null:dec(f);if(bmP)bmP.catch(()=>{});
  note='<small>Lendo a fatura… pode levar até 1 minuto. Se aparecer um pedido de permissão, toque em Permitir.</small>';prev=null;draw();
  try{const sample=await claude.use('sample'),lim=sample&&await sample.limits();if(!lim||!lim.images){const e=Error('x');e.code='images_unavailable';throw e}
   let blobs;
   if(pdf)blobs=await pdfPages(f,pass,Math.min(lim.images.maxCount,8));
-  else{const bm=await bmP,W=bm.naturalWidth||bm.width,H=bm.naturalHeight||bm.height,s=Math.min(1,1600/Math.max(W,H)),c=document.createElement('canvas');
-   c.width=Math.round(W*s);c.height=Math.round(H*s);c.getContext('2d').drawImage(bm,0,0,c.width,c.height);
-   blobs=[await jpg(c,1.2e6)]}
-  const j=await sample.json('',{images:blobs,meta:{mes,cats:C.car,pdf}});
-  prev={total:j.total,compras:(j.compras||[]).filter(r=>r.desc&&isFinite(r.valor)).map(r=>({data:r.data,desc:String(r.desc),cat:C.car.includes(r.cat)?r.cat:'Outros',valor:+r.valor,parc:+r.parc||1,parcAt:+r.parcAt||1}))};
-  note=prev.compras.length?'':'<small class="r">Nenhuma compra reconhecida. Tente uma foto mais reta e iluminada.</small>';
+  else{const bm=await bmP,W=bm.naturalWidth||bm.width,H=bm.naturalHeight||bm.height,n=H/W>1.7?Math.min(4,Math.ceil(H/(W*1.5))):1,sh=H/n,ov=n>1?sh*.12:0;blobs=[];
+   for(let i=0;i<n;i++){const y0=Math.max(0,i*sh-ov),hh=Math.min(H,(i+1)*sh+ov)-y0,s=Math.min(1,1568/Math.max(W,hh)),c=document.createElement('canvas');
+    c.width=Math.round(W*s);c.height=Math.round(hh*s);c.getContext('2d').drawImage(bm,0,y0,W,hh,0,0,c.width,c.height);blobs.push(await jpg(c,n>1?600e3:1.2e6))}
+   blobs.slices=n>1}
+  const j=await sample.json('',{images:blobs,texts:blobs.texts||[],meta:{mes,cats:C.car,pdf,slices:!!blobs.slices}});
+  prev={total:(j.total>0?j.total:null),compras:(j.compras||[]).filter(r=>r.desc&&isFinite(r.valor)).map(r=>({data:r.data,desc:String(r.desc),cat:C.car.includes(r.cat)?r.cat:'Outros',valor:+r.valor,parc:+r.parc||1,parcAt:+r.parcAt||1}))};
+  note=prev.compras.length?(j.observacoes?`<small class="r">⚠ Observação da leitura: ${esc(j.observacoes)}</small>`:''):'<small class="r">Nenhuma compra reconhecida. Tente uma foto mais reta e iluminada.</small>';
  }catch(e){const m={not_granted:'Você não permitiu o envio da imagem ao Claude. Recarregue a página e toque em Permitir.',images_unavailable:'Esta visualização não permite enviar imagens. Abra o link dentro do claude.ai ou do app Claude, logado.',image_rejected:'Imagem não aceita (formato ou tamanho). Tire a foto de novo.',pdf_senha:'PDF protegido: digite a senha no campo acima (muitas vezes os primeiros dígitos do CPF) e escolha o arquivo de novo.',rate_limited:'Muitas leituras seguidas. Aguarde um minuto.'};note=`<small class="r">Não consegui ler: ${esc(m[e&&e.code]||(e&&e.name=='ReferenceError'?m.images_unavailable:e&&e.message)||e)}${e&&e.code&&!m[e.code]?' ('+esc(e.code)+')':''}</small>`}
  draw();}
 let gmode=0;
