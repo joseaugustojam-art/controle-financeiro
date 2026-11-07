@@ -93,13 +93,25 @@ nav#nav button span{white-space:nowrap}
 html.android nav#nav{bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 html.android main{padding-bottom:190px}
 html.android .toast{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
+
+/* linhas com exclusão por arrastar */
+.sw{position:relative;overflow:hidden;border-bottom:1px solid var(--b)}.sw:last-child{border-bottom:0}
+.sw .i{border-bottom:0;background:var(--c);position:relative;z-index:1;transition:transform .22s cubic-bezier(.2,.8,.2,1);padding:10px 0;touch-action:pan-y}
+.swd{position:absolute;right:0;top:0;bottom:0;width:92px;border:0;border-radius:0;background:#ff4d6d;color:#fff;font-weight:800;font-size:14px;z-index:0}
+.sw.open .sw-fg{transform:translateX(-92px)}
+.dsc{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48vw}
+.rw>span{min-width:0}.am{font-weight:700;white-space:nowrap;margin-left:8px}
+.x{display:none}.hint2{display:none;color:var(--m);font-size:12px;margin-bottom:4px}
+@media(hover:hover){.x{display:inline}}
+@media(pointer:coarse){.hint2{display:block}.x{display:none}}
+.cs{display:inline-block;margin-top:4px;height:30px;max-width:150px;font-size:13px;padding:0 8px;border-radius:10px}
 </style></head><body><div id="gate" class="gate"><div class="gc">
 <img class="glogo" src="logo.svg" alt="GESFI"><div class="gname">GESFI</div><div class="gsub">Gestão financeira simples, do seu jeito 💜</div>
 <div class="seg"><button id="tl" class="on" onclick="gtab(0)">Entrar</button><button id="tr" onclick="gtab(1)">Primeiro acesso</button></div>
 <form id="gf" onsubmit="gsend(event)" style="display:grid;gap:10px;text-align:left"><input id="ge" type="email" placeholder="📧  E-mail da compra" autocomplete="username" required><input id="gc" placeholder="🔑  Código da compra (ex.: HP12345678901234)" hidden><input id="gp" type="password" placeholder="🔒  Senha (mínimo 8 caracteres)" autocomplete="current-password" required minlength="8"><button class="a" id="gb">Entrar</button><div id="gmsg" style="font-size:14px;color:var(--r);min-height:18px"></div></form>
 <div class="gfoot">O acesso é liberado automaticamente após a confirmação da compra, apenas para o e-mail do comprador.</div></div></div>
 <main>
-<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.7</small></div></div><a class="lk" href="manual.html" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">Ajuda</a><button class="lk" onclick="sair()">Sair</button></div>
+<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.8</small></div></div><a class="lk" href="manual.html" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">Ajuda</a><button class="lk" onclick="sair()">Sair</button></div>
 <div id="warn" class="card r" hidden>Sem conexão com o servidor: os dados valem só nesta sessão.</div>
 <div class="row"><span class="dt" style="width:auto;flex:0 1 150px"><span id="mesTxt"></span><input id="mes" type="month" onchange="mes=this.value;draw()" onclick="try{this.showPicker()}catch(e){}" aria-label="Mês"></span><button id="mny" onclick="pop(1)" aria-label="Alertas e previsão de parcelas"><svg viewBox="0 0 96 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <g class="w"><g class="wl"><path d="M30 38C18 22 6 24 2 14C16 8 28 18 36 32Z" fill="#f1f8e9" stroke="#2e7d32" stroke-width="1.5"/><path d="M31 37C21 30 13 30 7 26" fill="none" stroke="#a5d6a7" stroke-width="1.5"/></g></g>
@@ -110,8 +122,6 @@ html.android .toast{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
 <nav id="nav"></nav><div id="hint" hidden style="text-align:center;color:var(--m);font-size:12px;margin-bottom:4px">‹ deslize para os lados para trocar de aba ›</div><div id="v" class="anim"></div></main><div id="pop" class="ov" hidden onclick="pop(0)"><div id="pp" class="pp" onclick="event.stopPropagation()"></div></div><div id="ok" class="toast" hidden></div>
 <script src="shim.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
 <script>
 if(/Android/i.test(navigator.userAgent)&&document.documentElement)document.documentElement.classList.add('android');
 if(window.addEventListener)window.addEventListener('error',e=>{try{toast('⚠ Erro no app: '+e.message,9000)}catch(_){}});
@@ -190,8 +200,8 @@ function lista(){
  <input name="valor" type="text" inputmode="decimal" autocomplete="off" placeholder="Valor (R$) ex.: 25,90" required>
  ${car?'<input name="parc" type="number" min="1" inputmode="numeric" placeholder="Parcelas (1)"><input name="parcAt" type="number" min="1" inputmode="numeric" placeholder="Parcela atual (1)">':''}
  <button class="a">Adicionar</button></form></div>
- ${car?`<div class="card"><div class="t3"><label class="a src">📷 Foto<input type="file" accept="image/*" onchange="ler(this)"></label><label class="a src">📄 PDF<input type="file" accept="application/pdf,.pdf" onchange="ler(this)"></label><button type="button" class="a src" onclick="bank()">🏦 Banco</button></div><input type="password" placeholder="Senha do PDF (se houver)" value="${esc(pw)}" oninput="pw=this.value" style="margin-top:8px;width:100%;height:46px;box-sizing:border-box;font-size:16px"><div>${note}</div>${preview()}</div>`:''}
- <div class="card">${L.map(r=>`<div class="i"><span class="rw"><i class="av" style="background:${avc(r.cat)}">${ico(r.cat)}</i><span>${esc(r.desc)}<small>${r.data.split('-').reverse().join('/')} · ${sel(r.cat,"setCat('"+r.id+"',this.value)")}${r.parc>1?` · ${r.parcAt}/${r.parc}`:''}${r.proj?' · previsto':''}${r.tipo=='ent'?' · quita '+mo(r).split('-').reverse().join('/'):''}</small></span></span><span>${brl(r.valor)} <button onclick="del('${r.id}')">✕</button></span></div>`).join('')||'<small>Nenhum lançamento neste mês.</small>'}</div>`;
+ ${car?`<div class="card"><div class="t3"><label class="a src">📷 Foto<input type="file" accept="image/*" onchange="ler(this)"></label><label class="a src">📄 PDF<input type="file" accept="application/pdf,.pdf" onchange="ler(this)"></label><button type="button" class="a src" onclick="bank()">🏦 Banco</button></div><input type="password" placeholder="Senha do PDF (se houver)" value="${esc(pw)}" oninput="pw=this.value" style="margin-top:8px;width:100%;height:46px;box-sizing:border-box;font-size:16px"><div id="nt">${note}</div>${preview()}</div>`:''}
+ <div class="card">${L.length?'<small class="hint2">Dica: deslize um item para a esquerda para excluir</small>':''}${L.map(r=>`<div class="sw"><button class="swd" onclick="del('${r.id}')">Excluir</button><div class="i sw-fg"><span class="rw"><i class="av" style="background:${avc(r.cat)}">${ico(r.cat)}</i><span><b class="dsc">${esc(r.desc)}</b><small>${r.data.split('-').reverse().join('/')}${r.parc>1?` · ${r.parcAt}/${r.parc}`:''}${r.proj?' · previsto':''}${r.tipo=='ent'?' · quita '+mo(r).split('-').reverse().join('/'):''}</small>${sel(r.cat,"setCat('"+r.id+"',this.value)")}</span></span><span class="am">${brl(r.valor)}<button class="x" onclick="del('${r.id}')" aria-label="Excluir">✕</button></span></div></div>`).join('')||'<small>Nenhum lançamento neste mês.</small>'}</div>`;
 }
 const num=s=>{s=String(s==null?'':s).replace(/[^\d,.\-]/g,'');if(!s)return NaN;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^-?\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');const v=parseFloat(s);return isFinite(v)?Math.round(v*100)/100:NaN};
 function add(e){e.preventDefault();try{add_(e)}catch(err){toast('⚠ Erro ao adicionar: '+(err&&err.message||err),9000);console.error(err)}}
@@ -236,9 +246,15 @@ function popHtml(){const i=info();let s;
  const f=i.fim,p=i.prox;
  return `<h3 style="margin-top:0">${fmt(mes)}</h3>${s}${w}<h3>Previsão de fim das parcelas</h3><div><b style="font-size:18px">${f?fmt(f.e):'—'}</b>${f?` · ${dif(f.e)<1?'neste mês':'em '+dif(f.e)+' mês(es)'} · última: ${esc(f.d)}`:' · nenhuma parcela em andamento'}</div>${p&&p!==f?`<small style="display:block">Próxima a terminar: ${esc(p.d)} em ${fmt(p.e)}</small>`:''}<small style="display:block;color:var(--m)">${i.ac.length} compra(s) parcelada(s) em andamento a partir de ${fmt(mes)} (mês da última fatura prevista).</small><button class="lk" onclick="pop(0);go('parc')">Ver compras parceladas ›</button>`}
 function pop(o){if(o)$('#pp').innerHTML=popHtml()+'<button class="a" style="width:100%;margin-top:12px" onclick="pop(0)">Fechar</button>';$('#pop').hidden=!o}
+const SWR={el:null,x:0,y:0,dx:0,lock:null,base:0},SWW=92;
+function swClose(except){document.querySelectorAll&&document.querySelectorAll('.sw.open').forEach(e=>{if(e!==except)e.classList.remove('open')})}
+function swS(e){const r=e.target.closest&&e.target.closest('.sw');swClose(r);if(!r||e.target.closest('select,button')){SWR.el=null;return}const t=e.touches[0];Object.assign(SWR,{el:r,x:t.clientX,y:t.clientY,dx:0,lock:null,base:r.classList.contains('open')?-SWW:0})}
+function swM(e){if(!SWR.el)return;const t=e.touches[0],dx=t.clientX-SWR.x,dy=t.clientY-SWR.y;if(SWR.lock===null&&(Math.abs(dx)>8||Math.abs(dy)>8))SWR.lock=Math.abs(dx)>Math.abs(dy)?'h':'v';if(SWR.lock!=='h')return;SWR.dx=dx;const fg=SWR.el.querySelector('.sw-fg');fg.style.transition='none';fg.style.transform=`translateX(${Math.max(-SWW*1.3,Math.min(0,SWR.base+dx))}px)`}
+function swE(){if(!SWR.el)return;const el=SWR.el;SWR.el=null;if(SWR.lock!=='h')return;const fg=el.querySelector('.sw-fg');fg.style.transition='';fg.style.transform='';el.classList.toggle('open',SWR.base+SWR.dx<-SWW/2)}
+if(document.addEventListener){document.addEventListener('touchstart',swS,{passive:true});document.addEventListener('touchmove',swM,{passive:true});document.addEventListener('touchend',swE,{passive:true})}
 const ORD=['res','ent','fix','var','car'],sw={x:0,y:0,t:0,skip:1};
 if(window.matchMedia&&matchMedia('(pointer:coarse)').matches)$('#hint').hidden=false;
-document.addEventListener('touchstart',e=>{const t=e.touches[0];sw.x=t.clientX;sw.y=t.clientY;sw.t=Date.now();sw.skip=!$('#pop').hidden||e.touches.length>1||!!(e.target.closest&&e.target.closest('#nav,input,select,textarea'))},{passive:true});
+document.addEventListener('touchstart',e=>{const t=e.touches[0];sw.x=t.clientX;sw.y=t.clientY;sw.t=Date.now();sw.skip=!$('#pop').hidden||e.touches.length>1||!!(e.target.closest&&e.target.closest('#nav,input,select,textarea,.sw'))},{passive:true});
 document.addEventListener('touchend',e=>{if(sw.skip)return;sw.skip=1;const t=e.changedTouches[0],dx=t.clientX-sw.x,dy=t.clientY-sw.y;
  if(Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*.6||Date.now()-sw.t>700)return;
  const dir=dx<0?1:-1;let n=null;
@@ -270,34 +286,40 @@ function preview(){
 function lancar(){const o=lancarCar(prev.compras.map(r=>({...r,tipo:'car',fatura:mes})));Promise.all(o.ps).then(saved,fail);
  note=`<small class="g">${o.n} compra(s) nova(s)${o.c?'; '+o.c+' parcela(s) prevista(s) confirmada(s)':''}${o.p?'; '+o.p+' parcela(s) replicada(s) para os meses seguintes':''}; ${o.d} já existiam.</small>`;prev=null;draw();}
 async function dec(f){try{return await createImageBitmap(f)}catch(e){return await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(Error('formato de imagem não suportado'));i.src=URL.createObjectURL(f)})}}
-async function jpg(c,max){let q=.85,cv=c;for(let i=0;i<10;i++){const b=await new Promise(r=>cv.toBlob(r,'image/jpeg',q));if(b&&b.size<=max)return b;
-  if(q>.6)q-=.1;else{const n=document.createElement('canvas');n.width=Math.round(cv.width*.85);n.height=Math.round(cv.height*.85);n.getContext('2d').drawImage(cv,0,0,n.width,n.height);cv=n}}
- return await new Promise(r=>cv.toBlob(r,'image/jpeg',.6))}
+async function jpg(c,max){const enc=(cv,q)=>new Promise(r=>cv.toBlob(r,'image/jpeg',q));let b=await enc(c,.8);if(b&&b.size<=max)return b;
+ const k=Math.sqrt(max/Math.max(1,b.size))*.92,n=document.createElement('canvas');n.width=Math.max(300,Math.round(c.width*k));n.height=Math.max(300,Math.round(c.height*k));n.getContext('2d').drawImage(c,0,0,n.width,n.height);
+ b=await enc(n,.8);if(b&&b.size<=max)return b;return await enc(n,.6)}
 async function pageText(pg){const tc=await pg.getTextContent(),rows=[];
  tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const x=it.transform[4],y=it.transform[5];let r=rows.find(q=>Math.abs(q.y-y)<2.5);if(!r){r={y,it:[]};rows.push(r)}r.it.push({x,s:it.str,w:it.width||0})});
  rows.sort((a,b)=>b.y-a.y);
  return rows.map(r=>{r.it.sort((a,b)=>a.x-b.x);let t='',px=null;r.it.forEach(i=>{const s=i.s;if(px!==null){const g=i.x-px;if(g>12)t=t.replace(/\s+$/,'')+'   ';else if(g>1.2&&!/\s$/.test(t)&&!/^\s/.test(s))t+=' '}t+=(px!==null&&/\s$/.test(t)?s.replace(/^\s+/,''):s);px=i.x+i.w});return t.replace(/\s+$/,'')}).filter(Boolean).join('\n')}
-async function pdfPages(f,pass,max){
- if(!window.pdfjsLib)throw Error('Leitor de PDF indisponível. Use uma foto.');
- let d;try{d=await pdfjsLib.getDocument({data:await f.arrayBuffer(),password:pass||undefined,isEvalSupported:false}).promise}catch(e){if(e&&e.name=='PasswordException')throw Object.assign(Error('PDF protegido'),{code:'pdf_senha'});throw e}
- const out=[],texts=[];for(let n=1;n<=Math.min(d.numPages,max);n++){const pg=await d.getPage(n),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:Math.min(2,1200/v0.width)}),c=document.createElement('canvas');
-  c.width=Math.round(v.width);c.height=Math.round(v.height);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;out.push(await jpg(c,Math.min(d.numPages,max)>1?450e3:1.2e6));try{texts.push((await pageText(pg)).slice(0,38000))}catch(e){texts.push('')}}
- out.texts=texts;return out}
+const ldS=u=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>no(Error('Não consegui carregar o leitor de PDF. Verifique a internet ou use uma foto.'));document.head.appendChild(s)});
+async function ensurePdf(){if(window.pdfjsLib)return;const B='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';await ldS(B+'pdf.min.js');await ldS(B+'pdf.worker.min.js')}
+async function pdfOpen(f,pass){await ensurePdf();try{return await pdfjsLib.getDocument({data:await f.arrayBuffer(),password:pass||undefined,isEvalSupported:false}).promise}catch(e){if(e&&e.name=='PasswordException')throw Object.assign(Error('PDF protegido'),{code:'pdf_senha'});throw e}}
+const pgs=(d,mx)=>[...Array(Math.min(d.numPages,mx))].map((_,i)=>i+1);
+async function pdfTexts(d,mx){return Promise.all(pgs(d,mx).map(async n=>{try{return(await pageText(await d.getPage(n))).slice(0,38000)}catch(e){return''}}))}
+async function pdfImgs(d,mx){const N=pgs(d,mx).length;return Promise.all(pgs(d,mx).map(async n=>{const pg=await d.getPage(n),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:Math.min(2,1200/v0.width)}),c=document.createElement('canvas');
+  c.width=Math.round(v.width);c.height=Math.round(v.height);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;return jpg(c,N>1?450e3:1.2e6)}))}
 function bank(){$('#pp').innerHTML='<h3 style="margin-top:0">🏦 Vincular banco (Open Finance)</h3><div>Ainda não está disponível. Enquanto isso, use <b>Foto</b> ou <b>PDF</b> da fatura (o PDF costuma ser mais preciso).</div><button class="a" style="width:100%;margin-top:12px" onclick="pop(0)">Entendi</button>';$('#pop').hidden=false}
 async function ler(inp){const f=inp.files&&inp.files[0];if(!f)return;const pdf=/pdf/i.test(f.type)||/\.pdf$/i.test(f.name),pass=pw,bmP=pdf?null:dec(f);if(bmP)bmP.catch(()=>{});
- note='<small>Lendo a fatura… pode levar até 1 minuto. Se aparecer um pedido de permissão, toque em Permitir.</small>';prev=null;draw();
+ prev=null;note='';draw();let stage='Preparando o arquivo…';const t0=Date.now(),tm=setInterval(()=>setNote(`<small>⏳ ${stage} ${Math.round((Date.now()-t0)/1000)}s</small>`),1000);setNote(`<small>⏳ ${stage}</small>`);
  try{const sample=await claude.use('sample'),lim=sample&&await sample.limits();if(!lim||!lim.images){const e=Error('x');e.code='images_unavailable';throw e}
-  let blobs;
-  if(pdf)blobs=await pdfPages(f,pass,Math.min(lim.images.maxCount,8));
+  let blobs,pdfDoc,mx=Math.min(lim.images.maxCount,8);
+  if(pdf){pdfDoc=await pdfOpen(f,pass);const tx=await pdfTexts(pdfDoc,mx),digital=tx.length>0&&tx.every(t=>t.replace(/\s/g,'').length>=150);blobs=digital?[]:await pdfImgs(pdfDoc,mx);blobs.texts=tx}
   else{const bm=await bmP,W=bm.naturalWidth||bm.width,H=bm.naturalHeight||bm.height,n=H/W>1.7?Math.min(4,Math.ceil(H/(W*1.5))):1,sh=H/n,ov=n>1?sh*.12:0;blobs=[];
    for(let i=0;i<n;i++){const y0=Math.max(0,i*sh-ov),hh=Math.min(H,(i+1)*sh+ov)-y0,s=Math.min(1,1568/Math.max(W,hh)),c=document.createElement('canvas');
     c.width=Math.round(W*s);c.height=Math.round(hh*s);c.getContext('2d').drawImage(bm,0,y0,W,hh,0,0,c.width,c.height);blobs.push(await jpg(c,n>1?600e3:1.2e6))}
    blobs.slices=n>1}
-  const j=await sample.json('',{images:blobs,texts:blobs.texts||[],meta:{mes,cats:C.car,pdf,slices:!!blobs.slices}});
+  stage='Lendo a fatura com IA…';let j=await sample.json('',{images:blobs,texts:blobs.texts||[],meta:{mes,cats:C.car,pdf,slices:!!blobs.slices,semImagens:!blobs.length}});
+  if(pdf&&!blobs.length&&!(j.compras||[]).length){stage='Conferindo o PDF pelas imagens…';const im=await pdfImgs(pdfDoc,mx);im.texts=blobs.texts;j=await sample.json('',{images:im,texts:im.texts,meta:{mes,cats:C.car,pdf,slices:false,semImagens:false}})}
   prev={total:(j.total>0?j.total:null),compras:(j.compras||[]).filter(r=>r.desc&&isFinite(r.valor)).map(r=>({data:r.data,desc:String(r.desc),cat:C.car.includes(r.cat)?r.cat:'Outros',valor:+r.valor,parc:+r.parc||1,parcAt:+r.parcAt||1}))};
   note=prev.compras.length?(j.observacoes?`<small class="r">⚠ Observação da leitura: ${esc(j.observacoes)}</small>`:''):'<small class="r">Nenhuma compra reconhecida. Tente uma foto mais reta e iluminada.</small>';
  }catch(e){const m={not_granted:'Você não permitiu o envio da imagem ao Claude. Recarregue a página e toque em Permitir.',images_unavailable:'Esta visualização não permite enviar imagens. Abra o link dentro do claude.ai ou do app Claude, logado.',image_rejected:'Imagem não aceita (formato ou tamanho). Tire a foto de novo.',pdf_senha:'PDF protegido: digite a senha no campo acima (muitas vezes os primeiros dígitos do CPF) e escolha o arquivo de novo.',rate_limited:'Muitas leituras seguidas. Aguarde um minuto.'};note=`<small class="r">Não consegui ler: ${esc(m[e&&e.code]||(e&&e.name=='ReferenceError'?m.images_unavailable:e&&e.message)||e)}${e&&e.code&&!m[e.code]?' ('+esc(e.code)+')':''}</small>`}
- draw();}
+ clearInterval(tm);draw();}
+let pend=false;
+function drawSoft(){const a=document.activeElement;if(a&&/^(SELECT|INPUT|TEXTAREA)$/.test(a.tagName)&&a.closest&&a.closest('#v')){pend=true;return}draw()}
+if(document.addEventListener)document.addEventListener('focusout',()=>{if(pend)setTimeout(()=>{if(pend){pend=false;draw()}},150)});
+function setNote(x){note=x;const e=$('#nt');if(e)e.innerHTML=x}
 let gmode=0;
 function gtab(m){gmode=m;$('#gc').hidden=!m;$('#gb').textContent=m?'Criar acesso':'Entrar';$('#gp').autocomplete=m?'new-password':'current-password';$('#tl').className=m?'':'on';$('#tr').className=m?'on':'';$('#gmsg').textContent=''}
 async function gsend(e){e.preventDefault();const m=$('#gmsg'),b=$('#gb');b.disabled=true;m.textContent='';
@@ -312,7 +334,7 @@ async function acesso(){
   const ok=await acesso(db,u).catch(()=>false);
   if(!ok)return;
   $('#gate').hidden=true;
-  let id=db&&u?await u.id():null;if(id){col=db.collection('data/users/'+id);cfg=col.doc('cfg');col.onSnapshot(s=>{rows=[];s.docs.forEach(d=>{const x=d.data();if(d.id=='cfg'){if(x.cats)Object.assign(C,x.cats)}else if(d.id=='licmap')lm=x;else rows.push({id:d.id,...x})});draw()},e=>toast('⚠ '+e.message));}else $('#warn').hidden=false;
+  let id=db&&u?await u.id():null;if(id){col=db.collection('data/users/'+id);cfg=col.doc('cfg');col.onSnapshot(s=>{rows=[];s.docs.forEach(d=>{const x=d.data();if(d.id=='cfg'){if(x.cats)Object.assign(C,x.cats)}else if(d.id=='licmap')lm=x;else rows.push({id:d.id,...x})});drawSoft()},e=>toast('⚠ '+e.message));}else $('#warn').hidden=false;
  }catch(e){$('#warn').hidden=false}
  draw();})();
 </script></body></html>

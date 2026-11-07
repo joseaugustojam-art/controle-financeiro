@@ -44,8 +44,8 @@
     const imgs = await Promise.all(o.images.map((b) => new Promise((r) => { const f = new FileReader(); f.onload = () => r(f.result.split(',')[1]); f.readAsDataURL(b); })));
     const id = uid();
     await api('/ocr-start', { method: 'POST', body: JSON.stringify({ id, images: imgs, texts: o.texts || [], meta: o.meta }) });
-    for (let i = 0; i < 70; i++) {
-      await new Promise((r) => setTimeout(r, 2500));
+    for (let i = 0; i < 110; i++) {
+      await new Promise((r) => setTimeout(r, i < 4 ? 1200 : 2000));
       const s = await api('/ocr-status?id=' + id);
       if (s.status === 'done') return s.data;
       if (s.status === 'error') throw Object.assign(new Error(s.message || 'Falha na leitura.'), { code: s.code || 'ocr_error' });
