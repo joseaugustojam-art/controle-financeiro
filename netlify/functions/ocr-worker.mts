@@ -22,7 +22,7 @@ export default async (req: Request) => {
     const saved = (await store.get(id, { type: "json" })) as { images?: string[]; texts?: string[] } | string[] | null;
     const images = (Array.isArray(saved) ? saved : saved?.images) || [];
     const texts = (Array.isArray(saved) ? [] : saved?.texts) || [];
-    if (!images.length) return fail(id, "image_rejected", "Imagem não encontrada.");
+    if (!images.length && !texts.some((t) => t && t.trim())) return fail(id, "image_rejected", "Arquivo não encontrado.");
     const meta = (job.meta || {}) as OcrMeta;
     const cats = Array.isArray(meta.cats) && meta.cats.length ? meta.cats.map(String) : ["Outros"];
 
