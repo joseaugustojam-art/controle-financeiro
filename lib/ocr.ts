@@ -32,13 +32,13 @@ export const TOOL = {
   },
 };
 
-export type OcrMeta = { mes?: string; cats?: string[]; pdf?: boolean; slices?: boolean };
+export type OcrMeta = { mes?: string; cats?: string[]; pdf?: boolean; slices?: boolean; semImagens?: boolean };
 
 export function buildPrompt(meta: OcrMeta, texts: string[], cats: string[]) {
   const tem = texts.some((t) => t && t.trim());
-  const origem = meta.pdf ? "páginas de um PDF" : meta.slices ? "fatias sobrepostas (de cima para baixo) de UMA foto" : "a foto";
+  const origem = meta.semImagens ? "o texto digital, página a página, de um PDF (sem imagens)" : meta.pdf ? "páginas de um PDF" : meta.slices ? "fatias sobrepostas (de cima para baixo) de UMA foto" : "a foto";
   const partes = [
-    `Você é um transcritor de faturas de cartão de crédito brasileiras. Estas imagens são ${origem} de uma fatura${meta.mes ? ` (mês de referência ${meta.mes})` : ""}.`,
+    `Você é um transcritor de faturas de cartão de crédito brasileiras. Você recebeu ${origem} de uma fatura${meta.mes ? ` (mês de referência ${meta.mes})` : ""}.`,
     `Sua tarefa é TRANSCREVER com fidelidade total cada linha de lançamento, chamando a ferramenta registrar_fatura.`,
     ``,
     `REGRAS DE FIDELIDADE (as mais importantes):`,
@@ -55,6 +55,7 @@ export function buildPrompt(meta: OcrMeta, texts: string[], cats: string[]) {
     `Categorias permitidas (use exatamente uma por linha): ${cats.join(", ")}. Se nenhuma servir, use "Outros".`,
   ];
   if (tem) {
+    if (meta.semImagens) partes.push(``, `Não há imagens: transcreva a partir do texto abaixo, que mantém as linhas do PDF (colunas separadas por 3 espaços).`);
     partes.push(``, `TEXTO EXTRAÍDO DO PDF: abaixo está o texto digital do próprio PDF. Ele é a FONTE PRINCIPAL dos caracteres: copie descrições e valores dele (sem erros de leitura). Use as imagens apenas para entender o layout (colunas, parcelas, o que é pagamento ou estorno). Se o texto e a imagem divergirem, siga o texto.`);
     texts.forEach((t, i) => { if (t && t.trim()) partes.push(``, `--- página ${i + 1} ---`, t); });
   }
