@@ -77,7 +77,12 @@ const ocrStart: Handler = async (req) => {
   const id = String(b.id || "");
   if (!/^[a-z0-9]{8,40}$/i.test(id)) throw new HttpError(400, "bad_id", "Requisição inválida.");
   const images = Array.isArray(b.images) ? b.images.filter((x: unknown) => typeof x === "string" && x.length > 100) : [];
-  if (!images.length || images.length > MAX_IMAGES) throw new HttpError(400, "image_rejected", "Envie de 1 a 8 imagens.");
+  const texts = Array.isArray(b.texts)
+    ? b.texts.filter((x: unknown) => typeof x === "string").map((x: string) => x.slice(0, 40_000)).slice(0, MAX_IMAGES)
+    : [];
+  // PDF com texto digital pode ir sem imagens (mais rápido); caso contrário, de 1 a 8 imagens.
+  const temTexto = texts.some((t: string) => t.trim().length > 100);
+  if ((!images.length && !temTexto) || images.length > MAX_IMAGES) throw new HttpError(400, "image_rejected", "Envie de 1 a 8 imagens.");
 
   const limit = Number(process.env.OCR_LIMIT) || 40;
   const start = new Date(); start.setUTCDate(1); start.setUTCHours(0, 0, 0, 0);
@@ -92,9 +97,6 @@ const ocrStart: Handler = async (req) => {
   const meta = b.meta && typeof b.meta === "object" ? b.meta : {};
   const inserted = await db.insert(ocrJobs).values({ id, userId: u.id, meta }).onConflictDoNothing().returning();
   if (!inserted.length) throw new HttpError(409, "dup", "Leitura já iniciada.");
-  const texts = Array.isArray(b.texts)
-    ? b.texts.filter((x: unknown) => typeof x === "string").map((x: string) => x.slice(0, 40_000)).slice(0, MAX_IMAGES)
-    : [];
   await getStore("ocr-images").setJSON(id, { images, texts });
 
   const r = await fetch(new URL("/.netlify/functions/ocr-worker", req.url), {
