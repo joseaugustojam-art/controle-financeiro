@@ -51,7 +51,7 @@ main{padding:14px 14px 118px}
 .k{gap:10px}.k div{border-radius:18px;box-shadow:var(--sh);position:relative;overflow:hidden;padding:12px;transition:transform .15s}
 .k small{display:block;font-weight:600}.k b{font-size:19px;font-weight:800}.k .ic{position:absolute;right:10px;top:8px;font-size:22px}
 .q1{background-image:linear-gradient(135deg,rgba(0,209,178,.22),transparent 75%)}.q2{background-image:linear-gradient(135deg,rgba(124,77,255,.22),transparent 75%)}.q3{background-image:linear-gradient(135deg,rgba(255,159,67,.24),transparent 75%)}.q4{background-image:linear-gradient(135deg,rgba(255,107,157,.24),transparent 75%)}
-.k div:active,.hero:active,.card:active{transform:scale(.985)}
+.k div:active,.hero:active{transform:scale(.985)}
 .hero{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 12px;padding:18px;border-radius:26px;background:var(--grad);color:#fff;box-shadow:0 16px 36px rgba(124,77,255,.38);cursor:pointer;transition:transform .15s}
 .hero::before{content:"";position:absolute;right:-30px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.14)}
 .hero small{color:rgba(255,255,255,.88);font-weight:600}.hero .big{display:block;font-size:31px;font-weight:800;margin:4px 0;color:#fff}
@@ -105,13 +105,15 @@ html.android .toast{bottom:calc(166px + env(safe-area-inset-bottom,0px))}
 @media(hover:hover){.x{display:inline}}
 @media(pointer:coarse){.hint2{display:block}.x{display:none}}
 .cs{display:inline-block;margin-top:4px;height:30px;max-width:150px;font-size:13px;padding:0 8px;border-radius:10px}
+.lh{display:flex;align-items:center;gap:8px;margin-bottom:4px}.lh .hint2{margin:0}.dz{margin-left:auto;border:0;background:none;color:var(--r);font-weight:700;font-size:13px;padding:6px 0}
+button.a.dg{background:#ff4d6d;box-shadow:0 8px 18px rgba(255,77,109,.35)}
 </style></head><body><div id="gate" class="gate"><div class="gc">
 <img class="glogo" src="logo.svg" alt="GESFI"><div class="gname">GESFI</div><div class="gsub">Gestão financeira simples, do seu jeito 💜</div>
 <div class="seg"><button id="tl" class="on" onclick="gtab(0)">Entrar</button><button id="tr" onclick="gtab(1)">Primeiro acesso</button></div>
 <form id="gf" onsubmit="gsend(event)" style="display:grid;gap:10px;text-align:left"><input id="ge" type="email" placeholder="📧  E-mail da compra" autocomplete="username" required><input id="gc" placeholder="🔑  Código da compra (ex.: HP12345678901234)" hidden><input id="gp" type="password" placeholder="🔒  Senha (mínimo 8 caracteres)" autocomplete="current-password" required minlength="8"><button class="a" id="gb">Entrar</button><div id="gmsg" style="font-size:14px;color:var(--r);min-height:18px"></div></form>
 <div class="gfoot">O acesso é liberado automaticamente após a confirmação da compra, apenas para o e-mail do comprador.</div></div></div>
 <main>
-<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.8</small></div></div><a class="lk" href="manual.html" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">Ajuda</a><button class="lk" onclick="sair()">Sair</button></div>
+<div class="row top"><div class="brand"><img src="logo.svg" alt="GESFI"><div><b>GESFI</b><small>Gestão financeira · v1.9</small></div></div><a class="lk" href="manual.html" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">Ajuda</a><button class="lk" onclick="sair()">Sair</button></div>
 <div id="warn" class="card r" hidden>Sem conexão com o servidor: os dados valem só nesta sessão.</div>
 <div class="row"><span class="dt" style="width:auto;flex:0 1 150px"><span id="mesTxt"></span><input id="mes" type="month" onchange="mes=this.value;draw()" onclick="try{this.showPicker()}catch(e){}" aria-label="Mês"></span><button id="mny" onclick="pop(1)" aria-label="Alertas e previsão de parcelas"><svg viewBox="0 0 96 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <g class="w"><g class="wl"><path d="M30 38C18 22 6 24 2 14C16 8 28 18 36 32Z" fill="#f1f8e9" stroke="#2e7d32" stroke-width="1.5"/><path d="M31 37C21 30 13 30 7 26" fill="none" stroke="#a5d6a7" stroke-width="1.5"/></g></g>
@@ -200,8 +202,8 @@ function lista(){
  <input name="valor" type="text" inputmode="decimal" autocomplete="off" placeholder="Valor (R$) ex.: 25,90" required>
  ${car?'<input name="parc" type="number" min="1" inputmode="numeric" placeholder="Parcelas (1)"><input name="parcAt" type="number" min="1" inputmode="numeric" placeholder="Parcela atual (1)">':''}
  <button class="a">Adicionar</button></form></div>
- ${car?`<div class="card"><div class="t3"><label class="a src">📷 Foto<input type="file" accept="image/*" onchange="ler(this)"></label><label class="a src">📄 PDF<input type="file" accept="application/pdf,.pdf" onchange="ler(this)"></label><button type="button" class="a src" onclick="bank()">🏦 Banco</button></div><input type="password" placeholder="Senha do PDF (se houver)" value="${esc(pw)}" oninput="pw=this.value" style="margin-top:8px;width:100%;height:46px;box-sizing:border-box;font-size:16px"><div id="nt">${note}</div>${preview()}</div>`:''}
- <div class="card">${L.length?'<small class="hint2">Dica: deslize um item para a esquerda para excluir</small>':''}${L.map(r=>`<div class="sw"><button class="swd" onclick="del('${r.id}')">Excluir</button><div class="i sw-fg"><span class="rw"><i class="av" style="background:${avc(r.cat)}">${ico(r.cat)}</i><span><b class="dsc">${esc(r.desc)}</b><small>${r.data.split('-').reverse().join('/')}${r.parc>1?` · ${r.parcAt}/${r.parc}`:''}${r.proj?' · previsto':''}${r.tipo=='ent'?' · quita '+mo(r).split('-').reverse().join('/'):''}</small>${sel(r.cat,"setCat('"+r.id+"',this.value)")}</span></span><span class="am">${brl(r.valor)}<button class="x" onclick="del('${r.id}')" aria-label="Excluir">✕</button></span></div></div>`).join('')||'<small>Nenhum lançamento neste mês.</small>'}</div>`;
+ ${car?`<div class="card"><div class="t3"><label class="a src">📷 Fotos<input type="file" accept="image/*" multiple onchange="ler(this)"></label><label class="a src">📄 PDF<input type="file" accept="application/pdf,.pdf" onchange="ler(this)"></label><button type="button" class="a src" onclick="bank()">🏦 Banco</button></div><input type="password" placeholder="Senha do PDF (se houver)" value="${esc(pw)}" oninput="pw=this.value" style="margin-top:8px;width:100%;height:46px;box-sizing:border-box;font-size:16px"><div id="nt">${note}</div>${preview()}</div>`:''}
+ <div class="card">${L.length?'<div class="lh"><small class="hint2">Dica: deslize um item para a esquerda para excluir</small><button class="dz" onclick="delAll()">🗑️ Excluir tudo</button></div>':''}${L.map(r=>`<div class="sw"><button class="swd" onclick="del('${r.id}')">Excluir</button><div class="i sw-fg"><span class="rw"><i class="av" style="background:${avc(r.cat)}">${ico(r.cat)}</i><span><b class="dsc">${esc(r.desc)}</b><small>${r.data.split('-').reverse().join('/')}${r.parc>1?` · ${r.parcAt}/${r.parc}`:''}${r.proj?' · previsto':''}${r.tipo=='ent'?' · quita '+mo(r).split('-').reverse().join('/'):''}</small>${sel(r.cat,"setCat('"+r.id+"',this.value)")}</span></span><span class="am">${brl(r.valor)}<button class="x" onclick="del('${r.id}')" aria-label="Excluir">✕</button></span></div></div>`).join('')||'<small>Nenhum lançamento neste mês.</small>'}</div>`;
 }
 const num=s=>{s=String(s==null?'':s).replace(/[^\d,.\-]/g,'');if(!s)return NaN;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');else if(/^-?\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');const v=parseFloat(s);return isFinite(v)?Math.round(v*100)/100:NaN};
 function add(e){e.preventDefault();try{add_(e)}catch(err){toast('⚠ Erro ao adicionar: '+(err&&err.message||err),9000);console.error(err)}}
@@ -221,7 +223,7 @@ function chips(){
 function setFil(i){fil=cl[i];draw()}
 function go(t){tab=t;fil='';ed=false;draw();flash();scrollTo(0,0)}
 const NI={res:'🏠',ent:'💸',fix:'📌',var:'🛒',car:'💳'},cv={};
-function flash(){try{const v=$('#v');v.classList.remove('anim');void v.offsetWidth;v.classList.add('anim')}catch(e){}}
+function flash(){try{const v=$('#v');v.classList.remove('anim');void v.offsetWidth;v.classList.add('anim');clearTimeout(flash.t);flash.t=setTimeout(()=>v.classList.remove('anim'),800)}catch(e){}}
 function nav(k){tab=k;fil='';ed=false;draw();flash();try{scrollTo(0,0);navigator.vibrate&&navigator.vibrate(8)}catch(e){}}
 function cup(){if(!document.querySelectorAll)return;const red=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
  document.querySelectorAll('[data-v]').forEach(el=>{const k=el.dataset.k,to=+el.dataset.v,from=cv[k]??0;cv[k]=to;if(from===to||red)return;const t0=performance.now();
@@ -249,7 +251,7 @@ function pop(o){if(o)$('#pp').innerHTML=popHtml()+'<button class="a" style="widt
 const SWR={el:null,x:0,y:0,dx:0,lock:null,base:0},SWW=92;
 function swClose(except){document.querySelectorAll&&document.querySelectorAll('.sw.open').forEach(e=>{if(e!==except)e.classList.remove('open')})}
 function swS(e){const r=e.target.closest&&e.target.closest('.sw');swClose(r);if(!r||e.target.closest('select,button')){SWR.el=null;return}const t=e.touches[0];Object.assign(SWR,{el:r,x:t.clientX,y:t.clientY,dx:0,lock:null,base:r.classList.contains('open')?-SWW:0})}
-function swM(e){if(!SWR.el)return;const t=e.touches[0],dx=t.clientX-SWR.x,dy=t.clientY-SWR.y;if(SWR.lock===null&&(Math.abs(dx)>8||Math.abs(dy)>8))SWR.lock=Math.abs(dx)>Math.abs(dy)?'h':'v';if(SWR.lock!=='h')return;SWR.dx=dx;const fg=SWR.el.querySelector('.sw-fg');fg.style.transition='none';fg.style.transform=`translateX(${Math.max(-SWW*1.3,Math.min(0,SWR.base+dx))}px)`}
+function swM(e){if(!SWR.el)return;const t=e.touches[0],dx=t.clientX-SWR.x,dy=t.clientY-SWR.y;if(SWR.lock===null&&(Math.abs(dx)>14||Math.abs(dy)>14))SWR.lock=Math.abs(dx)>Math.abs(dy)?'h':'v';if(SWR.lock!=='h')return;SWR.dx=dx;const fg=SWR.el.querySelector('.sw-fg');fg.style.transition='none';fg.style.transform=`translateX(${Math.max(-SWW*1.3,Math.min(0,SWR.base+dx))}px)`}
 function swE(){if(!SWR.el)return;const el=SWR.el;SWR.el=null;if(SWR.lock!=='h')return;const fg=el.querySelector('.sw-fg');fg.style.transition='';fg.style.transform='';el.classList.toggle('open',SWR.base+SWR.dx<-SWW/2)}
 if(document.addEventListener){document.addEventListener('touchstart',swS,{passive:true});document.addEventListener('touchmove',swM,{passive:true});document.addEventListener('touchend',swE,{passive:true})}
 const ORD=['res','ent','fix','var','car'],sw={x:0,y:0,t:0,skip:1};
@@ -301,16 +303,16 @@ async function pdfTexts(d,mx){return Promise.all(pgs(d,mx).map(async n=>{try{ret
 async function pdfImgs(d,mx){const N=pgs(d,mx).length;return Promise.all(pgs(d,mx).map(async n=>{const pg=await d.getPage(n),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:Math.min(2,1200/v0.width)}),c=document.createElement('canvas');
   c.width=Math.round(v.width);c.height=Math.round(v.height);await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;return jpg(c,N>1?450e3:1.2e6)}))}
 function bank(){$('#pp').innerHTML='<h3 style="margin-top:0">🏦 Vincular banco (Open Finance)</h3><div>Ainda não está disponível. Enquanto isso, use <b>Foto</b> ou <b>PDF</b> da fatura (o PDF costuma ser mais preciso).</div><button class="a" style="width:100%;margin-top:12px" onclick="pop(0)">Entendi</button>';$('#pop').hidden=false}
-async function ler(inp){const f=inp.files&&inp.files[0];if(!f)return;const pdf=/pdf/i.test(f.type)||/\.pdf$/i.test(f.name),pass=pw,bmP=pdf?null:dec(f);if(bmP)bmP.catch(()=>{});
+async function photoBlobs(bm,nf){const W=bm.naturalWidth||bm.width,H=bm.naturalHeight||bm.height,n=nf==1&&H/W>1.7?Math.min(4,Math.ceil(H/(W*1.5))):1,sh=H/n,ov=n>1?sh*.12:0,cap=nf>1?Math.max(250e3,Math.min(1.2e6,Math.floor(3.1e6/nf))):(n>1?600e3:1.2e6),out=[];
+ for(let i=0;i<n;i++){const y0=Math.max(0,i*sh-ov),hh=Math.min(H,(i+1)*sh+ov)-y0,s=Math.min(1,1568/Math.max(W,hh)),c=document.createElement('canvas');c.width=Math.round(W*s);c.height=Math.round(hh*s);c.getContext('2d').drawImage(bm,0,y0,W,hh,0,0,c.width,c.height);out.push(await jpg(c,cap))}
+ return out}
+async function ler(inp){const fl=[...(inp.files||[])],f=fl[0];if(!f)return;if(fl.length>8){toast('⚠ Escolha no máximo 8 fotos de uma vez',5000);return}const pdf=fl.length==1&&(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)),pass=pw,bmPs=pdf?null:fl.map(dec);if(bmPs)bmPs.forEach(q=>q.catch(()=>{}));
  prev=null;note='';draw();let stage='Preparando o arquivo…';const t0=Date.now(),tm=setInterval(()=>setNote(`<small>⏳ ${stage} ${Math.round((Date.now()-t0)/1000)}s</small>`),1000);setNote(`<small>⏳ ${stage}</small>`);
  try{const sample=await claude.use('sample'),lim=sample&&await sample.limits();if(!lim||!lim.images){const e=Error('x');e.code='images_unavailable';throw e}
   let blobs,pdfDoc,mx=Math.min(lim.images.maxCount,8);
   if(pdf){pdfDoc=await pdfOpen(f,pass);const tx=await pdfTexts(pdfDoc,mx),digital=tx.length>0&&tx.every(t=>t.replace(/\s/g,'').length>=150);blobs=digital?[]:await pdfImgs(pdfDoc,mx);blobs.texts=tx}
-  else{const bm=await bmP,W=bm.naturalWidth||bm.width,H=bm.naturalHeight||bm.height,n=H/W>1.7?Math.min(4,Math.ceil(H/(W*1.5))):1,sh=H/n,ov=n>1?sh*.12:0;blobs=[];
-   for(let i=0;i<n;i++){const y0=Math.max(0,i*sh-ov),hh=Math.min(H,(i+1)*sh+ov)-y0,s=Math.min(1,1568/Math.max(W,hh)),c=document.createElement('canvas');
-    c.width=Math.round(W*s);c.height=Math.round(hh*s);c.getContext('2d').drawImage(bm,0,y0,W,hh,0,0,c.width,c.height);blobs.push(await jpg(c,n>1?600e3:1.2e6))}
-   blobs.slices=n>1}
-  stage='Lendo a fatura com IA…';let j=await sample.json('',{images:blobs,texts:blobs.texts||[],meta:{mes,cats:C.car,pdf,slices:!!blobs.slices,semImagens:!blobs.length}});
+  else{const bms=await Promise.all(bmPs);blobs=[];(await Promise.all(bms.map(b=>photoBlobs(b,bms.length)))).forEach(x=>blobs.push(...x));blobs.slices=bms.length==1&&blobs.length>1;blobs.multi=bms.length}
+  stage='Lendo a fatura com IA…';let j=await sample.json('',{images:blobs,texts:blobs.texts||[],meta:{mes,cats:C.car,pdf,slices:!!blobs.slices,multi:blobs.multi||1,semImagens:!blobs.length}});
   if(pdf&&!blobs.length&&!(j.compras||[]).length){stage='Conferindo o PDF pelas imagens…';const im=await pdfImgs(pdfDoc,mx);im.texts=blobs.texts;j=await sample.json('',{images:im,texts:im.texts,meta:{mes,cats:C.car,pdf,slices:false,semImagens:false}})}
   prev={total:(j.total>0?j.total:null),compras:(j.compras||[]).filter(r=>r.desc&&isFinite(r.valor)).map(r=>({data:r.data,desc:String(r.desc),cat:C.car.includes(r.cat)?r.cat:'Outros',valor:+r.valor,parc:+r.parc||1,parcAt:+r.parcAt||1}))};
   note=prev.compras.length?(j.observacoes?`<small class="r">⚠ Observação da leitura: ${esc(j.observacoes)}</small>`:''):'<small class="r">Nenhuma compra reconhecida. Tente uma foto mais reta e iluminada.</small>';
@@ -319,6 +321,11 @@ async function ler(inp){const f=inp.files&&inp.files[0];if(!f)return;const pdf=/
 let pend=false;
 function drawSoft(){const a=document.activeElement;if(a&&/^(SELECT|INPUT|TEXTAREA)$/.test(a.tagName)&&a.closest&&a.closest('#v')){pend=true;return}draw()}
 if(document.addEventListener)document.addEventListener('focusout',()=>{if(pend)setTimeout(()=>{if(pend){pend=false;draw()}},150)});
+function delAll(){const L=rows.filter(r=>r.tipo==tab&&mo(r)===mes&&(!fil||r.cat===fil)),all=rows.filter(r=>r.tipo==tab);
+ $('#pp').innerHTML=`<h3 style="margin-top:0">🗑️ Excluir tudo</h3><div>Serão apagados <b>${L.length}</b> lançamento(s) de <b>${T[tab]}</b> em <b>${fmt(mes)}</b>${fil?` (tópico ${esc(fil)})`:''}. Essa ação <b>não pode ser desfeita</b>.</div><button class="a dg" style="width:100%;margin-top:12px" onclick="delMany('mes')">Excluir ${L.length} deste mês</button>${all.length>L.length?`<button class="a dg" style="width:100%;margin-top:8px" onclick="delMany('tudo')">Excluir os ${all.length} de todos os meses</button>`:''}<button class="a" style="width:100%;margin-top:8px;background:var(--c);color:var(--t);box-shadow:none;border:1.5px solid var(--b)" onclick="pop(0)">Cancelar</button>`;$('#pop').hidden=false}
+function delMany(mode){const L=mode=='tudo'?rows.filter(r=>r.tipo==tab):rows.filter(r=>r.tipo==tab&&mo(r)===mes&&(!fil||r.cat===fil)),ids=new Set(L.map(r=>r.id));
+ L.forEach(r=>{if(r.tipo=='car'&&r.parc>1&&!r.proj)rows.forEach(x=>{if(x.proj&&sk(x)==sk(r)&&x.parcAt>r.parcAt)ids.add(x.id)})});pop(0);
+ Promise.all([...ids].map(i=>col?col.doc(i).delete():(rows=rows.filter(x=>x.id!=i),Promise.resolve()))).then(()=>{if(!col)draw();toast('🗑️ '+ids.size+' lançamento(s) excluído(s)')},fail)}
 function setNote(x){note=x;const e=$('#nt');if(e)e.innerHTML=x}
 let gmode=0;
 function gtab(m){gmode=m;$('#gc').hidden=!m;$('#gb').textContent=m?'Criar acesso':'Entrar';$('#gp').autocomplete=m?'new-password':'current-password';$('#tl').className=m?'':'on';$('#tr').className=m?'on':'';$('#gmsg').textContent=''}
@@ -336,5 +343,5 @@ async function acesso(){
   $('#gate').hidden=true;
   let id=db&&u?await u.id():null;if(id){col=db.collection('data/users/'+id);cfg=col.doc('cfg');col.onSnapshot(s=>{rows=[];s.docs.forEach(d=>{const x=d.data();if(d.id=='cfg'){if(x.cats)Object.assign(C,x.cats)}else if(d.id=='licmap')lm=x;else rows.push({id:d.id,...x})});drawSoft()},e=>toast('⚠ '+e.message));}else $('#warn').hidden=false;
  }catch(e){$('#warn').hidden=false}
- draw();})();
+ draw();setTimeout(()=>{try{$('#v').classList.remove('anim')}catch(e){}},900);})();
 </script></body></html>
