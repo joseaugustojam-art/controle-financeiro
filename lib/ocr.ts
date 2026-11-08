@@ -32,11 +32,11 @@ export const TOOL = {
   },
 };
 
-export type OcrMeta = { mes?: string; cats?: string[]; pdf?: boolean; slices?: boolean; semImagens?: boolean };
+export type OcrMeta = { mes?: string; cats?: string[]; pdf?: boolean; slices?: boolean; semImagens?: boolean; multi?: number };
 
 export function buildPrompt(meta: OcrMeta, texts: string[], cats: string[]) {
   const tem = texts.some((t) => t && t.trim());
-  const origem = meta.semImagens ? "o texto digital, página a página, de um PDF (sem imagens)" : meta.pdf ? "páginas de um PDF" : meta.slices ? "fatias sobrepostas (de cima para baixo) de UMA foto" : "a foto";
+  const origem = (meta.multi || 1) > 1 ? `${meta.multi} fotos (páginas, na ordem em que foram escolhidas)` : meta.semImagens ? "o texto digital, página a página, de um PDF (sem imagens)" : meta.pdf ? "páginas de um PDF" : meta.slices ? "fatias sobrepostas (de cima para baixo) de UMA foto" : "a foto";
   const partes = [
     `Você é um transcritor de faturas de cartão de crédito brasileiras. Você recebeu ${origem} de uma fatura${meta.mes ? ` (mês de referência ${meta.mes})` : ""}.`,
     `Sua tarefa é TRANSCREVER com fidelidade total cada linha de lançamento, chamando a ferramenta registrar_fatura.`,
@@ -50,7 +50,7 @@ export function buildPrompt(meta: OcrMeta, texts: string[], cats: string[]) {
     `6. Compras em moeda estrangeira: use o valor em reais (R$) cobrado na fatura.`,
     `7. Pagamentos da fatura anterior, "saldo anterior" e totais NÃO são compras: use tipo "pagamento" (serão descartados). Estornos e créditos: tipo "estorno" com valor negativo.`,
     `8. "total": o valor total a pagar da fatura, como impresso (0 se não aparecer). Use "observacoes" para qualquer ponto duvidoso.`,
-    meta.slices ? `9. As fatias se sobrepõem um pouco: se a mesma linha aparecer em duas fatias, registre-a UMA só vez.` : ``,
+    (meta.multi || 1) > 1 ? `9. As fotos podem se sobrepor: se a mesma linha aparecer em duas fotos, registre-a UMA só vez.` : meta.slices ? `9. As fatias se sobrepõem um pouco: se a mesma linha aparecer em duas fatias, registre-a UMA só vez.` : ``,
     ``,
     `Categorias permitidas (use exatamente uma por linha): ${cats.join(", ")}. Se nenhuma servir, use "Outros".`,
   ];
